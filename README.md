@@ -1,36 +1,147 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AECO Digital — Web Corporativa
 
-## Getting Started
+Sitio web oficial de [aecodigital.com](https://aecodigital.com) — consultoría especializada en transformación digital del sector AECO (Arquitectura, Ingeniería, Construcción y Operaciones).
 
-First, run the development server:
+---
+
+## Stack tecnológico
+
+| Capa | Tecnología |
+|---|---|
+| Framework | Next.js 16.2 (App Router) |
+| Lenguaje | TypeScript |
+| Estilos | Tailwind CSS v4 |
+| Fuente | Space Grotesk |
+| BIM / 3D | @thatopen/components + THREE.js |
+| Email | Resend |
+| Analytics | Vercel Analytics |
+| Hosting | Vercel (auto-deploy desde `main`) |
+
+---
+
+## Funcionalidades
+
+- **Web corporativa** — Hero, Servicios, Portfolio, Equipo, Testimonios, Blog, Contacto
+- **Blog técnico** — artículos especializados en BIM, gemelos digitales e IFC
+- **Repositorio de recursos** — plugins y herramientas para profesionales AECO
+- **Visor BIM** — carga y visualización de modelos IFC directamente en el navegador
+  - Árbol de modelo con jerarquía espacial IFC
+  - Panel de categorías con toggle de visibilidad por tipo
+  - Planos de sección en ejes X, Y, Z
+  - Selección múltiple, propiedades de elementos, menú contextual
+- **i18n ES/EN** — sistema propio de internacionalización con React Context
+
+---
+
+## Desarrollo local
+
+### Requisitos
+- Node.js 18+
+- npm
+
+### Instalación
+
+```bash
+git clone https://github.com/AecoDigital/AECODigital-Web.git
+cd AECODigital-Web
+npm install
+```
+
+### Variables de entorno
+
+Crea un archivo `.env.local` en la raíz del proyecto:
+
+```env
+RESEND_API_KEY=tu_clave_de_resend
+```
+
+### Arrancar el servidor
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre [http://localhost:3000](http://localhost:3000) en el navegador.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Flujo de trabajo
 
-## Learn More
+Este repositorio usa **protección de rama** — no se puede hacer push directo a `main`. Todo cambio requiere una rama y un Pull Request.
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# 1. Actualizar antes de empezar
+git pull origin main
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# 2. Crear rama para el cambio
+git checkout -b feature/nombre-del-cambio
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# 3. Desarrollar y commitear
+git add .
+git commit -m "feat: descripción del cambio"
+git push origin feature/nombre-del-cambio
 
-## Deploy on Vercel
+# 4. Abrir Pull Request en GitHub → merge → Vercel despliega automáticamente
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Convención de commits
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Prefijo | Uso |
+|---|---|
+| `feat:` | nueva funcionalidad |
+| `fix:` | corrección de bug |
+| `chore:` | infraestructura, dependencias, configuración |
+| `content:` | textos, datos, traducciones |
+| `refactor:` | mejora interna sin cambio de comportamiento |
+
+---
+
+## Estructura del proyecto
+
+```
+src/
+├── app/
+│   ├── page.tsx                 # Home
+│   ├── layout.tsx               # Root layout
+│   ├── bim-viewer/              # Visor IFC
+│   ├── blog/                    # Blog y detalle de artículos
+│   ├── plugins/                 # Repositorio de recursos
+│   └── api/contact/             # API de formulario de contacto
+├── components/                  # Componentes React
+├── data/
+│   ├── blog.ts                  # Artículos del blog
+│   └── plugins.ts               # Recursos/plugins
+└── lib/
+    ├── i18n.tsx                 # Context y hook de idioma
+    └── translations.ts          # Todos los textos ES/EN
+```
+
+---
+
+## Añadir contenido
+
+### Nuevo artículo de blog
+Abre `src/data/blog.ts` y añade un objeto siguiendo la interface `Articulo` (incluir versión EN).
+
+### Nuevo recurso/plugin
+Abre `src/data/plugins.ts` y añade un objeto siguiendo la interface `Plugin`.
+
+### Nuevo texto o traducción
+Todos los textos visibles del sitio están en `src/lib/translations.ts` en ES y EN. Nunca hardcodear texto en los componentes.
+
+---
+
+## Infraestructura
+
+| Servicio | Cuenta |
+|---|---|
+| GitHub | [AecoDigital](https://github.com/AecoDigital) |
+| Vercel | AECODigital (auto-deploy en merge a `main`) |
+| Dominio | Hostinger — A record → 76.76.21.21 |
+| Email transaccional | Resend |
+
+---
+
+## Licencia
+
+Código privado — © AECO Digital. Todos los derechos reservados.
