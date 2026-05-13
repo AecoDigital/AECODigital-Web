@@ -27,7 +27,9 @@ git add .
 git commit -m "feat: descripción del cambio"
 git push origin feature/nombre-del-cambio
 ```
-Luego abrir un Pull Request en GitHub → aprobar → merge a `main` → Vercel despliega solo.
+Luego abrir un Pull Request en GitHub → el CI valida TypeScript + build automáticamente → merge a `main` → Vercel despliega solo.
+
+> Si el CI falla (icono rojo en el PR) el merge queda bloqueado hasta corregir el error.
 
 ### Convención de commits
 | Prefijo | Cuándo usarlo |
@@ -91,10 +93,12 @@ Gestionadas en Vercel (cuenta AECODigital) → proyecto → Environment Variable
 |---|---|
 | `RESEND_API_KEY` | Envío de emails desde el formulario de contacto |
 
-Para desarrollo local, crea un archivo `.env.local` (no se sube al repo):
+Para desarrollo local copia el archivo de ejemplo y rellena los valores:
+```bash
+cp .env.example .env.local   # Mac/Linux
+copy .env.example .env.local  # Windows
 ```
-RESEND_API_KEY=tu_clave_aqui
-```
+El archivo `.env.local` nunca se sube al repo (está en `.gitignore`).
 
 ---
 
@@ -120,3 +124,5 @@ El dominio `aecodigital.com` apunta a Vercel mediante este registro DNS en Hosti
 | Gestionar dominio | Hostinger → Dominios → aecodigital.com |
 | Gestionar email | Hostinger → Emails |
 | Emails transaccionales | resend.com (cuenta AECODigital — pendiente migrar) |
+| CI / Calidad | GitHub Actions — `.github/workflows/ci.yml` |
+| Editor | `.vscode/settings.json` + `.vscode/extensions.json` (compartidos en repo) |

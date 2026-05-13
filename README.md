@@ -1,5 +1,7 @@
 # AECO Digital — Web Corporativa
 
+![CI](https://github.com/AecoDigital/AECODigital-Web/actions/workflows/ci.yml/badge.svg)
+
 Sitio web oficial de [aecodigital.com](https://aecodigital.com) — consultoría especializada en transformación digital del sector AECO (Arquitectura, Ingeniería, Construcción y Operaciones).
 
 ---
@@ -47,13 +49,15 @@ cd AECODigital-Web
 npm install
 ```
 
+VS Code detectará automáticamente las extensiones recomendadas (Tailwind, ESLint, Prettier, GitLens) y preguntará si quieres instalarlas.
+
 ### Variables de entorno
 
-Crea un archivo `.env.local` en la raíz del proyecto:
-
-```env
-RESEND_API_KEY=tu_clave_de_resend
+```bash
+cp .env.example .env.local
 ```
+
+Abre `.env.local` y rellena los valores. En Windows: `copy .env.example .env.local`.
 
 ### Arrancar el servidor
 
@@ -81,8 +85,10 @@ git add .
 git commit -m "feat: descripción del cambio"
 git push origin feature/nombre-del-cambio
 
-# 4. Abrir Pull Request en GitHub → merge → Vercel despliega automáticamente
+# 4. Abrir Pull Request en GitHub → CI valida → merge → Vercel despliega automáticamente
 ```
+
+El CI ejecuta TypeScript check + build en cada PR. Si falla, el merge queda bloqueado.
 
 ### Convención de commits
 

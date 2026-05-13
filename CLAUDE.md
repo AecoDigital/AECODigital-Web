@@ -173,6 +173,8 @@ git push origin feature/nombre-del-cambio
 | Vercel | AECODigital | Auto-deploy en merge a `main` |
 | Dominio | Hostinger | A record → 76.76.21.21. No tocar registros MX |
 | Email transaccional | Resend | Pendiente migrar a cuenta AECODigital |
+| CI | GitHub Actions | `.github/workflows/ci.yml` — tsc + build en cada PR |
+| Editor | VS Code | `.vscode/settings.json` + `.vscode/extensions.json` compartidos |
 
 ### Variable de entorno requerida
 ```
