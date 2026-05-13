@@ -184,6 +184,14 @@ export const translations = {
           tags: ["Scan-to-BIM", "Revit", "LOD 500"],
           año: "2023",
         },
+        {
+          title: "AECO",
+          categoria: "Arquitectura",
+          descripcion:
+            "Plataforma digital integral para el sector AECO: gestión de proyectos BIM, coordinación de disciplinas y entrega documental bajo estándares ISO 19650.",
+          tags: ["BIM", "Next.js", "ISO 19650"],
+          año: "2025",
+        },
       ],
     },
     equipo: {
@@ -509,6 +517,14 @@ export const translations = {
             "Scan-to-BIM of an 18th-century heritage building. AS-BUILT LOD 500 model for renovation works.",
           tags: ["Scan-to-BIM", "Revit", "LOD 500"],
           año: "2023",
+        },
+        {
+          title: "AECO",
+          categoria: "Architecture",
+          descripcion:
+            "Comprehensive digital platform for the AECO sector: BIM project management, discipline coordination and document delivery under ISO 19650 standards.",
+          tags: ["BIM", "Next.js", "ISO 19650"],
+          año: "2025",
         },
       ],
     },
