@@ -1,0 +1,274 @@
+export interface Descarga {
+  label: string;
+  url: string;
+  tipo: "github" | "zip" | "dynamo" | "python";
+}
+
+export interface Ejemplo {
+  titulo: string;
+  imagen: string;
+}
+
+export interface Plugin {
+  slug: string;
+  nombre: string;
+  categoria: string;
+  descripcion: string;
+  version: string;
+  fecha: string;
+  tags: string[];
+  manual: string;
+  ejemplos: Ejemplo[];
+  descargas: Descarga[];
+  destacado: boolean;
+}
+
+export const plugins: Plugin[] = [
+  {
+    slug: "ifc-checker",
+    nombre: "IFC Checker",
+    categoria: "Python",
+    descripcion:
+      "Validador automático de modelos IFC contra los requisitos de información de ISO 19650. Genera un informe detallado de cumplimiento en PDF o Excel.",
+    version: "v1.3.0",
+    fecha: "Mar 2025",
+    tags: ["IFC", "ISO 19650", "Python", "Validación"],
+    destacado: true,
+    manual: `## ¿Qué hace IFC Checker?
+
+IFC Checker analiza un modelo IFC y verifica que cumple con los requisitos de información definidos en la norma ISO 19650. Comprueba la presencia y formato correcto de propiedades, clasificaciones y metadatos obligatorios.
+
+## Requisitos
+
+- Python 3.9 o superior
+- Biblioteca \`ifcopenshell\`
+- Modelo IFC 2x3 o IFC 4
+
+## Instalación
+
+\`\`\`bash
+pip install ifcopenshell openpyxl reportlab
+python ifc_checker.py --install
+\`\`\`
+
+## Uso básico
+
+\`\`\`bash
+python ifc_checker.py --input modelo.ifc --output informe.xlsx
+\`\`\`
+
+## Parámetros
+
+| Parámetro | Descripción | Ejemplo |
+|---|---|---|
+| \`--input\` | Ruta al archivo IFC | \`modelo.ifc\` |
+| \`--output\` | Ruta del informe | \`informe.xlsx\` |
+| \`--format\` | PDF o Excel | \`pdf\` |
+| \`--level\` | Nivel de severidad | \`warning\` |
+
+## Qué comprueba
+
+- ✅ Presencia de GlobalId en todos los elementos
+- ✅ Clasificación OmniClass / Uniclass asignada
+- ✅ Nivel LOD declarado por elemento
+- ✅ Propiedades de material obligatorias
+- ✅ Coordenadas de referencia correctas (IFC Site)
+- ✅ Autoría y fecha de modelo presentes
+
+## Ejemplo de informe
+
+El informe generado incluye una tabla con todos los errores encontrados, clasificados por severidad (Error, Advertencia, Información) y por disciplina.
+`,
+    ejemplos: [
+      { titulo: "Informe de validación en Excel", imagen: "/plugins/ifc-checker/ejemplo-excel.png" },
+      { titulo: "Resumen de errores por disciplina", imagen: "/plugins/ifc-checker/ejemplo-resumen.png" },
+    ],
+    descargas: [
+      { label: "Ver en GitHub", url: "#", tipo: "github" },
+      { label: "Descargar ZIP", url: "#", tipo: "zip" },
+    ],
+  },
+  {
+    slug: "dynamo-excel",
+    nombre: "Dynamo Excel Sync",
+    categoria: "Dynamo",
+    descripcion:
+      "Sincronización bidireccional entre parámetros de Revit/Dynamo y hojas de cálculo Excel. Actualiza masivamente propiedades BIM desde una tabla.",
+    version: "v2.1.0",
+    fecha: "Ene 2025",
+    tags: ["Dynamo", "Revit", "Excel", "Automatización"],
+    destacado: true,
+    manual: `## ¿Qué hace Dynamo Excel Sync?
+
+Este script de Dynamo permite leer y escribir parámetros de elementos de Revit directamente desde y hacia hojas de cálculo Excel, sin necesidad de exportar/importar manualmente.
+
+## Requisitos
+
+- Revit 2022 o superior
+- Dynamo 2.13+
+- Paquete \`Data-Shapes\` (opcional, para UI)
+
+## Instalación
+
+1. Descarga el archivo \`.dyn\`
+2. Abre Dynamo en Revit
+3. Ve a **Archivo → Abrir** y selecciona el archivo descargado
+
+## Flujo de trabajo
+
+### Modo Lectura (Revit → Excel)
+
+1. Selecciona los elementos en Revit
+2. Define qué parámetros exportar en el nodo de configuración
+3. Ejecuta el script — se genera un Excel con una fila por elemento
+
+### Modo Escritura (Excel → Revit)
+
+1. Edita los valores en el Excel generado
+2. Abre el script en modo escritura
+3. Selecciona el archivo Excel modificado
+4. Ejecuta — los parámetros se actualizan en Revit
+
+## Parámetros soportados
+
+- Parámetros de proyecto y de tipo
+- Parámetros compartidos
+- Parámetros de sistema (solo lectura)
+
+## Notas importantes
+
+> ⚠️ Haz siempre una copia de seguridad del modelo antes de ejecutar en modo escritura.
+`,
+    ejemplos: [
+      { titulo: "Script en Dynamo Player", imagen: "/plugins/dynamo-excel/ejemplo-dynamo.png" },
+      { titulo: "Excel generado con parámetros", imagen: "/plugins/dynamo-excel/ejemplo-excel.png" },
+    ],
+    descargas: [
+      { label: "Descargar .dyn", url: "#", tipo: "dynamo" },
+      { label: "Ver en GitHub", url: "#", tipo: "github" },
+    ],
+  },
+  {
+    slug: "clash-reporter",
+    nombre: "Clash Reporter BCF",
+    categoria: "Python",
+    descripcion:
+      "Genera automáticamente informes de interferencias en formato BCF a partir de los resultados de Navisworks. Exporta a PDF y crea issues en BIMcollab.",
+    version: "v1.0.2",
+    fecha: "Feb 2025",
+    tags: ["BCF", "Navisworks", "Clash Detection", "BIMcollab"],
+    destacado: true,
+    manual: `## ¿Qué hace Clash Reporter?
+
+Clash Reporter toma el informe de interferencias exportado desde Navisworks (.xml o .html) y lo convierte automáticamente en:
+
+- Un archivo BCF estándar listo para importar en cualquier herramienta BIM
+- Un informe PDF con capturas, descripción y responsables asignados
+- Issues en BIMcollab (requiere API key)
+
+## Requisitos
+
+- Python 3.9+
+- Navisworks 2022+ (para exportar el informe fuente)
+- Cuenta BIMcollab (opcional, para sincronización)
+
+## Instalación
+
+\`\`\`bash
+pip install bcf-client requests lxml
+python clash_reporter.py --setup
+\`\`\`
+
+## Uso
+
+\`\`\`bash
+# Generar BCF desde Navisworks XML
+python clash_reporter.py --input clashes.xml --output informe.bcf
+
+# Generar PDF
+python clash_reporter.py --input clashes.xml --format pdf --output informe.pdf
+
+# Publicar en BIMcollab
+python clash_reporter.py --input clashes.xml --bimcollab --project MI_PROYECTO
+\`\`\`
+
+## Asignación de responsables
+
+El script puede asignar automáticamente responsables en función de la disciplina del elemento en clash, configurado en el archivo \`config.yaml\`.
+`,
+    ejemplos: [
+      { titulo: "Informe BCF en BIMcollab", imagen: "/plugins/clash-reporter/ejemplo-bimcollab.png" },
+      { titulo: "PDF de interferencias generado", imagen: "/plugins/clash-reporter/ejemplo-pdf.png" },
+    ],
+    descargas: [
+      { label: "Ver en GitHub", url: "#", tipo: "github" },
+      { label: "Descargar ZIP", url: "#", tipo: "zip" },
+    ],
+  },
+  {
+    slug: "bim-dashboard",
+    nombre: "BIM Dashboard KPIs",
+    categoria: "Python",
+    descripcion:
+      "Script Python que extrae KPIs de modelos BIM (LOD, completitud de propiedades, nº de elementos, volúmenes) y los visualiza en un dashboard interactivo.",
+    version: "v1.1.0",
+    fecha: "Abr 2025",
+    tags: ["Python", "KPIs", "IFC", "Dashboard", "Plotly"],
+    destacado: true,
+    manual: `## ¿Qué hace BIM Dashboard?
+
+BIM Dashboard analiza uno o varios modelos IFC y genera un dashboard web interactivo con los principales indicadores de calidad y avance del modelo BIM.
+
+## Requisitos
+
+- Python 3.10+
+- \`ifcopenshell\`, \`plotly\`, \`dash\`
+
+## Instalación
+
+\`\`\`bash
+pip install ifcopenshell plotly dash pandas
+\`\`\`
+
+## Ejecutar el dashboard
+
+\`\`\`bash
+python bim_dashboard.py --models modelo1.ifc modelo2.ifc
+\`\`\`
+
+Abre automáticamente \`http://localhost:8050\` en el navegador.
+
+## KPIs disponibles
+
+| Indicador | Descripción |
+|---|---|
+| Completitud LOD | % de elementos con LOD declarado |
+| Cobertura de propiedades | % de parámetros obligatorios rellenos |
+| Nº de elementos por disciplina | Desglose ARQ / EST / MEP |
+| Volumen total por tipo | m³ de hormigón, acero, vidrio... |
+| Distribución por planta | Elementos agrupados por nivel |
+| Tendencia temporal | Evolución del modelo entre versiones |
+
+## Comparativa multi-modelo
+
+Si se pasan varios archivos IFC, el dashboard muestra un panel comparativo entre versiones del mismo proyecto o entre disciplinas.
+`,
+    ejemplos: [
+      { titulo: "Dashboard de KPIs en navegador", imagen: "/plugins/bim-dashboard/ejemplo-dashboard.png" },
+      { titulo: "Gráfico de completitud LOD", imagen: "/plugins/bim-dashboard/ejemplo-lod.png" },
+    ],
+    descargas: [
+      { label: "Ver en GitHub", url: "#", tipo: "github" },
+      { label: "Descargar ZIP", url: "#", tipo: "zip" },
+      { label: "Documentación completa", url: "#", tipo: "zip" },
+    ],
+  },
+];
+
+export function getPlugin(slug: string): Plugin | undefined {
+  return plugins.find((p) => p.slug === slug);
+}
+
+export function getPluginsDestacados(): Plugin[] {
+  return plugins.filter((p) => p.destacado);
+}

@@ -1,0 +1,14 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #e8f1fb; }
+::-webkit-scrollbar-thumb { background: #93c5fd; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #0066cc; }

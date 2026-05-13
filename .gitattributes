@@ -1,0 +1,11 @@
+# Normalizar saltos de línea: LF en el repo, conversión automática en Windows
+* text=auto eol=lf
+
+# Binarios — sin conversión
+*.wasm binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text eol=lf
