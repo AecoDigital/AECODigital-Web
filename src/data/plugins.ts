@@ -206,6 +206,48 @@ El script puede asignar automáticamente responsables en función de la discipli
     ],
   },
   {
+    slug: "exportador-excel",
+    nombre: "Exportador a Excel",
+    categoria: "Revit",
+    descripcion:
+      "Instalador para Revit que exporta planillas y parámetros de elementos directamente a Excel con un solo clic. Ideal para generar mediciones, listados de puertas, ventanas y cualquier schedule de Revit.",
+    version: "v1.0.0",
+    fecha: "May 2025",
+    tags: ["Revit", "Excel", "Schedules", "Automatización"],
+    destacado: true,
+    manual: `## ¿Qué hace Exportador a Excel?
+
+Exportador a Excel es un instalador para Revit que permite exportar cualquier planilla (schedule) de Revit a un archivo Excel (.xlsx) con formato limpio y sin pasos intermedios.
+
+## Requisitos
+
+- Revit 2022 o superior
+- Microsoft Excel instalado (o compatible con .xlsx)
+
+## Instalación
+
+1. Descarga el instalador \`.exe\`
+2. Cierra Revit si está abierto
+3. Ejecuta el instalador como administrador
+4. Abre Revit — aparecerá una nueva pestaña **AECO Tools**
+
+## Uso
+
+1. Abre cualquier planilla (schedule) en Revit
+2. Ve a la pestaña **AECO Tools → Exportar a Excel**
+3. Selecciona la ruta de destino
+4. El archivo Excel se genera automáticamente
+
+## Notas
+
+> ⚠️ Ejecutar el instalador con permisos de administrador para que Revit registre el add-in correctamente.
+`,
+    ejemplos: [],
+    descargas: [
+      { label: "Descargar instalador (.exe)", url: "/plugins/exportador-excel/RevitScheduleExporter_Installer.exe", tipo: "zip" },
+    ],
+  },
+  {
     slug: "bim-dashboard",
     nombre: "BIM Dashboard KPIs",
     categoria: "Python",
