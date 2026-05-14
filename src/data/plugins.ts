@@ -242,7 +242,9 @@ Exportador a Excel es un instalador para Revit que permite exportar cualquier pl
 
 > ⚠️ Ejecutar el instalador con permisos de administrador para que Revit registre el add-in correctamente.
 `,
-    ejemplos: [],
+    ejemplos: [
+      { titulo: "Exportación de planilla desde Revit", imagen: "/plugins/exportador-excel/captura.jpg" },
+    ],
     descargas: [
       { label: "Descargar instalador (.exe)", url: "/plugins/exportador-excel/RevitScheduleExporter_Installer.exe", tipo: "zip" },
     ],
