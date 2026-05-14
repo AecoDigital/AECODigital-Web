@@ -1103,6 +1103,370 @@ IFC.js democratises access to BIM. Anyone with a browser can explore a model wit
 The entry cost is low: a few hours of setup and an IFC model exported from any tool compatible with the open standard. The potential, on the other hand, is transformative.
 `,
   },
+  {
+    slug: "ia-y-bim-cambio-de-paradigma",
+    titulo: "IA y BIM: el cambio de paradigma que ya está ocurriendo",
+    tituloEn: "AI and BIM: the paradigm shift that is already happening",
+    categoria: "IA & Futuro del Sector",
+    categoriaEn: "AI & Future of the Industry",
+    fecha: "14 May 2026",
+    fechaEn: "14 May 2026",
+    lectura: "15 min",
+    resumen:
+      "La IA no viene a sustituir el BIM: viene a cambiarlo de raíz. Qué está pasando ya, qué roles están en el centro del cambio y qué decisión concreta debería tomar tu equipo esta semana.",
+    resumenEn:
+      "AI is not here to replace BIM — it is here to transform it from the ground up. What is already happening, which roles are at the centre of the shift, and what concrete decision your team should make this week.",
+    tags: ["IA", "BIM", "Futuro del Trabajo", "Automatización", "Generative AI", "AEC"],
+    destacado: true,
+    contenido: `Hay una conversación que se repite ahora mismo en las salas de reuniones de estudios de arquitectura, consultoras de ingeniería y grandes constructoras de todo el mundo. Alguien muestra una demo de cómo una IA generó automáticamente la estructura de carga de un edificio a partir de una descripción en lenguaje natural. Alguien más dice "impresionante, pero eso no sirve para proyectos reales". Después hay silencio. Y en ese silencio vive, sin que nadie lo nombre, una pregunta incómoda: ¿y si sí sirve?
+
+La irrupción de la inteligencia artificial en el sector AECO no es una promesa de futuro. Es un proceso en curso, desigual, acelerado y, para quienes trabajan con modelos BIM, ya irreversible. No en el sentido de que vaya a borrar todo lo que existe — sino en el de que las reglas del juego están cambiando, y quienes esperan a que el cambio sea total antes de moverse llegarán tarde.
+
+Este artículo no es una lista de herramientas de moda. Es un análisis honesto de qué está pasando, qué ventajas e inconvenientes reales trae la IA al entorno BIM, qué roles van a verse más transformados y, sobre todo, qué paso concreto debería dar tu equipo a continuación.
+
+---
+
+## ¿Qué ha cambiado realmente?
+
+Durante décadas, la digitalización del sector AECO fue básicamente una sustitución de soporte: del papel al CAD, del CAD al modelo BIM 3D. Las herramientas cambiaron; el trabajo, en esencia, no. Un coordinador BIM de 2015 y uno de 2005 hacían tareas reconocibles el uno para el otro.
+
+Lo que trae la IA es cualitativamente distinto: por primera vez, las herramientas no solo almacenan y visualizan información — también la **razonan**. Pueden detectar patrones en miles de modelos previos, generar soluciones alternativas en segundos, interpretar normativa en texto y verificar si un modelo la cumple, y transformar lenguaje natural en geometría estructurada.
+
+Dicho de otro modo: el cuello de botella del BIM siempre fue el tiempo de modelado y verificación. La IA no lo elimina — pero lo comprime de forma que cambia el tipo de trabajo que tiene sentido que haga un profesional humano.
+
+---
+
+## Lo que la IA ya hace en BIM hoy
+
+Antes de hablar de tendencias, conviene ser precisos sobre lo que ya ocurre en producción, no en laboratorio:
+
+### Generación de modelos desde texto o bocetos
+
+Herramientas como **Hypar**, **Spacemaker** (adquirida por Autodesk) o **TestFit** permiten generar volúmenes, distribuciones de planta y análisis de cumplimiento normativo a partir de parámetros de entrada. No sustituyen al proyectista: generan decenas de opciones en minutos para que el equipo evalúe y descarte. El proyectista deja de dibujar alternativas para empezar a **tomar decisiones sobre alternativas**.
+
+### Detección automatizada de interferencias con contexto
+
+Los motores de clash detection tradicionales (Navisworks, Solibri) generan listas de interferencias sin jerarquía. Los sistemas de IA añaden contexto: distinguen un clash crítico de uno irrelevante, agrupan los que comparten causa raíz y sugieren cómo resolverlos. El BIM Manager que antes revisaba 800 clashes manualmente ahora revisa 40 priorizados.
+
+### Verificación normativa automática
+
+Plataformas como **Archistar** o el módulo de code compliance de **Autodesk Forma** interpretan la normativa urbanística y verifican si el modelo la cumple. Lo que era un proceso manual de días puede reducirse a minutos, con trazabilidad completa de cada comprobación.
+
+### Extracción de datos y documentación
+
+Los asistentes LLM (Large Language Models) integrados en entornos como **Autodesk Construction Cloud** permiten hacer preguntas en lenguaje natural sobre el modelo: "¿cuántos metros cuadrados de forjado colaborante hay en las plantas 3 a 7?" o "lista todos los elementos MEP que no tienen asignado un responsable de mantenimiento". Lo que antes requería exportar a Excel y cruzar datos, ahora es una conversación.
+
+### Mantenimiento predictivo en Digital Twins
+
+La IA combinada con datos de sensores IoT permite no solo monitorizar el estado de un edificio en tiempo real, sino predecir cuándo va a fallar un equipo antes de que ocurra. Este caso de uso ya está en producción en hospitales, centros logísticos y grandes edificios corporativos.
+
+---
+
+## Ventajas reales
+
+Sin hype. Las ventajas que ya se están materializando y tienen impacto medible:
+
+### Velocidad en fases de diseño temprano
+La generación de opciones de diseño a partir de restricciones (superficie, normativa, orientación, coste objetivo) pasa de semanas a horas. El equipo puede explorar más alternativas antes de comprometerse con una solución.
+
+### Reducción del trabajo repetitivo de alta fricción
+Completar Psets, generar schedules, verificar nomenclaturas, extraer cantidades — tareas que consumen horas sin aportar valor creativo — son candidatas directas a automatización. Los equipos que las automatizan liberan tiempo para las decisiones que realmente requieren criterio.
+
+### Mejora de la calidad del modelo
+Los sistemas de revisión automática detectan inconsistencias que un revisor humano pasa por alto por fatiga: elementos sin clasificar, propiedades vacías, relaciones espaciales incorrectas. El modelo llega a obra con menos errores.
+
+### Continuidad del conocimiento
+Cuando un técnico sénior deja un proyecto o una empresa, se lleva conocimiento implícito que no está documentado en ningún modelo. Los sistemas de IA entrenados sobre el historial de proyectos pueden retener y hacer accesible parte de ese conocimiento: patrones de resolución de conflictos, decisiones de diseño y sus justificaciones, convenciones no escritas.
+
+### Democratización del acceso
+Preguntar en lenguaje natural a un modelo BIM elimina la barrera técnica para perfiles no especializados: un FM puede consultar directamente sin intermediarios, un promotor puede explorar el modelo sin depender del BIM Manager en cada reunión.
+
+---
+
+## Inconvenientes y riesgos
+
+La IA en BIM no es una historia sin sombras. Ignorar los riesgos es una forma de no estar preparado para ellos.
+
+### Alucinaciones en contexto técnico
+
+Los LLMs cometen errores con total seguridad. En un contexto de entretenimiento, un error es anecdótico. En un modelo BIM que alimenta un presupuesto, un cálculo estructural o un plan de mantenimiento, un error puede ser catastrófico. La verificación humana no desaparece: se convierte en el trabajo más crítico que queda.
+
+### Opacidad del proceso
+
+"La IA lo ha calculado" no es una justificación válida en un proyecto con responsabilidades legales, contractuales y de seguridad. La trazabilidad y la explicabilidad de las decisiones son requisitos del sector AECO que los sistemas actuales de IA no satisfacen de forma nativa. Usar IA sin registrar el proceso viola principios básicos de la ISO 19650.
+
+### Dependencia de datos propietarios
+
+Las herramientas de IA de los grandes proveedores (Autodesk, Bentley, Trimble) se entrenan con datos de tus proyectos. Las implicaciones de confidencialidad y propiedad intelectual están, en muchos casos, sin resolver. Quién posee los modelos que entrenas debe ser una pregunta contractual antes de ser una pregunta técnica.
+
+### Desplazamiento de habilidades críticas
+
+Si las generaciones junior delegan en IA el aprendizaje de las mecánicas fundamentales — cómo funciona una unión estructural, por qué se crea una interferencia, cómo se lee un IFC — el sector puede producir técnicos que saben usar herramientas de IA pero que no tienen el criterio para saber cuándo están equivocadas. Ese es el riesgo real, no la sustitución masiva.
+
+### Brecha entre empresas grandes y pequeñas
+
+Las herramientas de IA más potentes tienen costes que los estudios pequeños no pueden asumir. Si el sector no desarrolla soluciones accesibles, la IA puede ampliar la distancia competitiva entre grandes y pequeñas organizaciones en lugar de nivelarla.
+
+---
+
+## Los roles más afectados
+
+No todos los perfiles del sector van a verse impactados de la misma manera ni al mismo ritmo. Esta es una lectura honesta por rol:
+
+| Rol | Tipo de impacto | Horizonte |
+|---|---|---|
+| **Técnico de modelado BIM** | Alto. Las tareas repetitivas de modelado se automatizan progresivamente | 2–4 años |
+| **BIM Coordinator** | Transformación. El trabajo pasa de revisar a verificar lo que revisa la IA | Ya ocurre |
+| **Arquitecto de diseño** | Ampliación. La IA genera opciones; el criterio creativo y de cliente sigue siendo humano | Largo plazo |
+| **Ingeniero de estructuras / MEP** | Transformación. Los cálculos rutinarios se asisten; el criterio de validación es más exigente | 2–5 años |
+| **BIM Manager** | Elevación. El perfil evoluciona hacia gobernanza de datos e IA más que hacia modelado | Ya ocurre |
+| **Project Manager** | Asistencia. Dashboards e informes automatizados; las decisiones siguen siendo humanas | 1–3 años |
+| **Facility Manager** | Transformación profunda. El FM con IA y Digital Twin cambia completamente el modelo de trabajo | 3–7 años |
+| **Quantity Surveyor** | Alto riesgo de automatización parcial. La extracción de cantidades y medición son candidatos directos | 1–3 años |
+
+La lectura correcta de esta tabla no es "estos roles van a desaparecer". Es: **las partes automatizables de cada rol van a desaparecer o reducirse, y el trabajo humano que queda va a requerir más criterio, no menos**.
+
+---
+
+## El cambio de paradigma en el trabajo
+
+Durante años, el sector AECO ha tenido una relación con la digitalización que podría resumirse en: adoptar las herramientas necesarias para seguir haciendo el mismo trabajo de forma más eficiente. El CAD sustituyó al tablero. Revit sustituyó al CAD. La nube sustituyó el servidor físico.
+
+La IA introduce algo distinto: **no es una herramienta más eficiente para el mismo trabajo, sino una redefinición de qué trabajo tiene sentido que haga un ser humano**.
+
+Hay tres cambios de paradigma concretos que ya se están produciendo:
+
+### De ejecutor a evaluador
+
+El técnico que antes pasaba el 60 % de su tiempo modelando ahora pasa ese tiempo evaluando lo que modela la IA. El cambio parece pequeño, pero requiere competencias distintas: pensamiento crítico sobre soluciones generadas, capacidad para detectar errores en contextos complejos, criterio para elegir entre alternativas.
+
+### Del especialista monodisciplinar al integrador
+
+La IA es especialmente potente cuando trabaja con información de múltiples disciplinas simultáneamente. Eso devalúa al especialista que solo conoce su silo y eleva al perfil que entiende las interdependencias: cómo afecta una decisión de estructura a MEP, cómo impacta en el coste, qué consecuencias tiene en la normativa de evacuación.
+
+### De la documentación al dato
+
+El sector AECO ha producido durante décadas documentos: planos, memorias, especificaciones. La IA necesita datos estructurados. El cambio de mentalidad —de "entrego un PDF bien presentado" a "entrego datos con calidad y trazabilidad"— es profundo y no es solo técnico. Es cultural.
+
+---
+
+## ¿Qué futuro se plantea?
+
+No hay certeza, pero sí hay señales suficientemente claras para proyectar con fundamento:
+
+**En los próximos 2–3 años**, la IA se consolidará como asistente estándar en las plataformas BIM más utilizadas. Autodesk ya lo está integrando en ACC; Bentley en iTwin; los pure players de IA como Spacemaker, Hypar o Testfit ganarán adopción. El técnico que no use estas herramientas estará en desventaja comparable a quien hoy no usara Revit.
+
+**En 5 años**, es plausible que el ciclo de diseño temprano —de la viabilidad al anteproyecto— se acelere radicalmente. Los proyectos más estandarizados (promoción residencial, naves logísticas, hospitales modulares) experimentarán la mayor compresión de plazos. Los proyectos singulares, con alta carga creativa y contextual, serán más resistentes.
+
+**En 10 años**, el Digital Twin conectado a IA será la norma en activos de cierta envergadura: no porque la tecnología haya mejorado cualitativamente sino porque el coste habrá bajado y la madurez del sector habrá subido. La gestión de activos en operación será irreconocible respecto a hoy.
+
+Lo que no cambia: la responsabilidad legal y contractual sigue siendo humana. El juicio sobre valores, impacto social y calidad espacial sigue siendo humano. La negociación, la gestión de conflictos, la confianza entre partes — todo eso sigue siendo humano. La IA no va a gestionar una reunión de coordinación en obra en tensión.
+
+---
+
+## ¿Qué paso dar ahora?
+
+La pregunta más frecuente después de analizar todo esto es: "¿por dónde empezamos?". La respuesta depende del perfil, pero hay tres acciones concretas que cualquier profesional AECO puede tomar esta semana:
+
+### Si eres técnico de modelado o BIM Coordinator
+
+Elige una tarea repetitiva que haces regularmente — extracción de cantidades, verificación de nomenclaturas, completar Psets — y busca si existe una herramienta o script que la automatice. No tienes que construirla tú: existen Dynamo players, plugins de Revit, y cada vez más conectores con GPT. El objetivo no es eliminar tu trabajo: es entender qué parte de tu tiempo se puede recuperar para trabajo de mayor valor.
+
+### Si eres BIM Manager o responsable de estrategia digital
+
+Audita los datos de tus proyectos antes de pensar en IA. La IA funciona con datos estructurados, consistentes y bien etiquetados. Si tus modelos tienen propiedades vacías, nomenclaturas inconsistentes y clasificaciones a medias, ninguna herramienta de IA va a funcionar bien. El primer paso no es comprar una suscripción — es limpiar la casa.
+
+### Si eres directivo o CEO de una organización AECO
+
+La adopción de IA no es una decisión tecnológica: es una decisión de negocio con implicaciones en personas, procesos y contratos. Define cuáles de tus servicios actuales son más vulnerables a la automatización y cuáles son más defensibles por su componente de juicio y relación. El mapa de vulnerabilidad de tu negocio es la base de cualquier estrategia coherente.
+
+---
+
+## Conclusión
+
+La irrupción de la IA en el sector BIM no es una amenaza ni una promesa: es una realidad que ya está modificando cómo se trabaja, qué se factura y qué habilidades son escasas. Los sectores que han esperado a que el cambio fuera inevitable antes de moverse — y hay precedentes en otras industrias — no desaparecieron, pero sí perdieron la capacidad de influir en cómo ocurrió el cambio.
+
+El sector AECO tiene una ventaja que no siempre reconoce: trabaja con datos extraordinariamente ricos, estructurados y con valor a lo largo de décadas. La IA necesita exactamente ese tipo de datos. Quien haya invertido en calidad BIM tiene una base más sólida de la que cree.
+
+El cambio de paradigma no es de herramientas. Es de mentalidad. De pensar en el modelo BIM como un entregable a pensarlo como una infraestructura de datos viva, conectada y consultable. De valorar la capacidad de juzgar sobre la de ejecutar. De entender que el técnico que sabe qué preguntar a la IA es más valioso que el que sabe modelar más rápido.
+
+Esa transición no es cómoda. Pero tampoco es opcional.
+`,
+    contenidoEn: `There is a conversation happening right now in the meeting rooms of architecture practices, engineering consultancies and major contractors around the world. Someone shows a demo of how an AI automatically generated a building's load-bearing structure from a natural language description. Someone else says "impressive, but that does not work for real projects." Then silence. And in that silence lives, unnamed, an uncomfortable question: what if it does?
+
+The arrival of artificial intelligence in the AECO sector is not a promise about the future. It is an ongoing process — uneven, accelerating, and for those who work with BIM models, already irreversible. Not in the sense that it will erase everything that exists, but in the sense that the rules of the game are changing, and those who wait for the change to be complete before moving will arrive too late.
+
+This article is not a list of trending tools. It is an honest analysis of what is happening, what real advantages and risks AI brings to the BIM environment, which roles will be most transformed, and above all, what concrete step your team should take next.
+
+---
+
+## What has actually changed?
+
+For decades, the digitalisation of the AECO sector was essentially a medium substitution: from paper to CAD, from CAD to 3D BIM models. The tools changed; the work, in essence, did not. A BIM coordinator from 2015 and one from 2005 would recognise each other's tasks.
+
+What AI brings is qualitatively different: for the first time, tools do not just store and display information — they **reason about it**. They can detect patterns across thousands of previous models, generate alternative solutions in seconds, interpret regulations in text and verify whether a model complies, and transform natural language into structured geometry.
+
+In other words: the bottleneck of BIM was always modelling and verification time. AI does not eliminate it — but it compresses it in ways that change what kind of work makes sense for a human professional to do.
+
+---
+
+## What AI already does in BIM today
+
+Before discussing trends, it is worth being precise about what already happens in production, not in laboratories:
+
+### Model generation from text or sketches
+
+Tools such as **Hypar**, **Spacemaker** (acquired by Autodesk) or **TestFit** generate building volumes, floor plan layouts and regulatory compliance analyses from input parameters. They do not replace the designer: they generate dozens of options in minutes so the team can evaluate and discard them. The designer stops drawing alternatives and starts **making decisions about alternatives**.
+
+### Automated clash detection with context
+
+Traditional clash detection engines (Navisworks, Solibri) generate undifferentiated lists of conflicts. AI systems add context: they distinguish a critical clash from an irrelevant one, group those sharing a root cause, and suggest resolutions. The BIM Manager who used to manually review 800 clashes now reviews 40 prioritised ones.
+
+### Automated regulatory compliance verification
+
+Platforms such as **Archistar** or Autodesk Forma's code compliance module interpret planning regulations and verify whether the model complies. What was a manual process taking days can be reduced to minutes, with full traceability for each check.
+
+### Data extraction and documentation
+
+LLM-powered assistants integrated into environments such as **Autodesk Construction Cloud** allow natural language queries against the model: "how many square metres of composite floor slab are there on floors 3 to 7?" or "list all MEP elements with no assigned maintenance responsible." What previously required exporting to Excel and cross-referencing data is now a conversation.
+
+### Predictive maintenance in Digital Twins
+
+AI combined with IoT sensor data allows not just real-time building monitoring, but predicting when equipment will fail before it happens. This use case is already in production in hospitals, logistics centres and large corporate buildings.
+
+---
+
+## Real advantages
+
+Without hype. The benefits that are already materialising and have measurable impact:
+
+### Speed in early design phases
+Generating design options from constraints (area, regulations, orientation, target cost) moves from weeks to hours. Teams can explore more alternatives before committing to a solution.
+
+### Reduction of high-friction repetitive work
+Completing Psets, generating schedules, verifying naming conventions, extracting quantities — tasks that consume hours without adding creative value — are prime candidates for automation. Teams that automate them free up time for decisions that genuinely require judgement.
+
+### Model quality improvement
+Automated review systems detect inconsistencies that human reviewers miss through fatigue: unclassified elements, empty properties, incorrect spatial relationships. The model reaches site with fewer errors.
+
+### Knowledge continuity
+When a senior technician leaves a project or a company, they take implicit knowledge that is not documented in any model. AI systems trained on project history can retain and make accessible part of that knowledge: conflict resolution patterns, design decisions and their justifications, unwritten conventions.
+
+### Democratised access
+Querying a BIM model in natural language removes the technical barrier for non-specialist profiles: an FM can consult directly without intermediaries, a client can explore the model without depending on the BIM Manager at every meeting.
+
+---
+
+## Risks and limitations
+
+AI in BIM is not a story without shadows. Ignoring the risks is a way of being unprepared for them.
+
+### Hallucinations in technical contexts
+
+LLMs make errors with complete confidence. In an entertainment context, an error is anecdotal. In a BIM model feeding a budget, a structural calculation or a maintenance plan, an error can be catastrophic. Human verification does not disappear — it becomes the most critical work that remains.
+
+### Opacity of process
+
+"The AI calculated it" is not a valid justification in a project with legal, contractual and safety responsibilities. Traceability and explainability of decisions are AECO sector requirements that current AI systems do not natively satisfy. Using AI without recording the process violates basic ISO 19650 principles.
+
+### Proprietary data dependency
+
+AI tools from major vendors (Autodesk, Bentley, Trimble) train on your project data. The confidentiality and intellectual property implications are, in many cases, unresolved. Who owns the models you train on should be a contractual question before it is a technical one.
+
+### Erosion of critical skills
+
+If junior generations delegate to AI the learning of fundamental mechanics — how a structural joint works, why a clash occurs, how to read an IFC — the sector may produce technicians who know how to use AI tools but lack the judgement to know when they are wrong. That is the real risk, not mass replacement.
+
+### Gap between large and small organisations
+
+The most powerful AI tools have costs that small practices cannot sustain. If the sector does not develop accessible solutions, AI may widen the competitive gap between large and small organisations rather than levelling it.
+
+---
+
+## The most affected roles
+
+Not all AECO profiles will be impacted in the same way or at the same pace. Here is an honest reading by role:
+
+| Role | Type of impact | Horizon |
+|---|---|---|
+| **BIM modelling technician** | High. Repetitive modelling tasks are progressively automated | 2–4 years |
+| **BIM Coordinator** | Transformation. Work shifts from reviewing to verifying what AI reviews | Already happening |
+| **Design architect** | Expansion. AI generates options; creative and client judgement remains human | Long term |
+| **Structural / MEP engineer** | Transformation. Routine calculations are assisted; validation judgement becomes more demanding | 2–5 years |
+| **BIM Manager** | Elevation. The role evolves towards data governance and AI rather than modelling | Already happening |
+| **Project Manager** | Assistance. Automated dashboards and reports; decisions remain human | 1–3 years |
+| **Facility Manager** | Deep transformation. FM with AI and Digital Twin completely changes the working model | 3–7 years |
+| **Quantity Surveyor** | High partial automation risk. Quantity extraction and measurement are prime candidates | 1–3 years |
+
+The correct reading of this table is not "these roles will disappear." It is: **the automatable parts of each role will disappear or shrink, and the human work that remains will require more judgement, not less**.
+
+---
+
+## The paradigm shift in work
+
+For years, the AECO sector has had a relationship with digitalisation that could be summarised as: adopt the tools needed to keep doing the same work more efficiently. CAD replaced the drawing board. Revit replaced CAD. The cloud replaced the physical server.
+
+AI introduces something different: **it is not a more efficient tool for the same work, but a redefinition of what work makes sense for a human to do**.
+
+Three concrete paradigm shifts are already occurring:
+
+### From executor to evaluator
+
+The technician who used to spend 60% of their time modelling now spends that time evaluating what the AI models. The shift seems small, but requires different competences: critical thinking about generated solutions, the ability to detect errors in complex contexts, the judgement to choose between alternatives.
+
+### From single-discipline specialist to integrator
+
+AI is especially powerful when working with information from multiple disciplines simultaneously. This devalues the specialist who only knows their silo and elevates the profile that understands interdependencies: how a structural decision affects MEP, how it impacts cost, what consequences it has for evacuation regulations.
+
+### From documentation to data
+
+The AECO sector has spent decades producing documents: drawings, reports, specifications. AI needs structured data. The mindset shift — from "I deliver a well-presented PDF" to "I deliver data with quality and traceability" — is profound and not just technical. It is cultural.
+
+---
+
+## What future is taking shape?
+
+There is no certainty, but there are clear enough signals to project with some confidence:
+
+**In the next 2–3 years**, AI will consolidate as a standard assistant in the most widely used BIM platforms. Autodesk is already integrating it into ACC; Bentley into iTwin; AI pure players like Spacemaker, Hypar and Testfit will gain adoption. The technician who does not use these tools will be at a disadvantage comparable to someone today who did not use Revit.
+
+**In 5 years**, it is plausible that the early design cycle — from feasibility to concept — will accelerate radically. The most standardised project types (residential development, logistics warehouses, modular hospitals) will experience the greatest time compression. Singular projects with high creative and contextual load will be more resistant.
+
+**In 10 years**, the AI-connected Digital Twin will be the norm for assets of any significance: not because the technology will have improved qualitatively but because costs will have fallen and sector maturity will have risen. Asset management in operation will be unrecognisable compared to today.
+
+What does not change: legal and contractual responsibility remains human. Judgement about values, social impact and spatial quality remains human. Negotiation, conflict management, trust between parties — all of that remains human. AI is not going to manage a tense on-site coordination meeting.
+
+---
+
+## What step to take now?
+
+The most common question after analysing all of this is: "where do we start?" The answer depends on the profile, but there are three concrete actions any AECO professional can take this week:
+
+### If you are a modelling technician or BIM Coordinator
+
+Pick one repetitive task you do regularly — quantity extraction, naming verification, Pset completion — and find out if a tool or script already automates it. You do not have to build it yourself: Dynamo players, Revit plugins and increasingly GPT connectors already exist. The goal is not to eliminate your work: it is to understand what fraction of your time can be recovered for higher-value work.
+
+### If you are a BIM Manager or head of digital strategy
+
+Audit your project data before thinking about AI. AI works with structured, consistent, well-labelled data. If your models have empty properties, inconsistent naming and half-finished classifications, no AI tool will work well. The first step is not buying a subscription — it is cleaning the house.
+
+### If you are a director or CEO of an AECO organisation
+
+AI adoption is not a technology decision — it is a business decision with implications for people, processes and contracts. Define which of your current services are most vulnerable to automation and which are most defensible because of their judgement and relationship component. Your business vulnerability map is the foundation of any coherent strategy.
+
+---
+
+## Conclusion
+
+The arrival of AI in the BIM sector is neither a threat nor a promise — it is a reality that is already modifying how work is done, what is billed, and which skills are scarce. Sectors that have waited for change to be inevitable before moving — and there are precedents in other industries — did not disappear, but they did lose the ability to influence how the change happened.
+
+The AECO sector has an advantage it does not always recognise: it works with extraordinarily rich, structured data that holds value across decades. AI needs exactly that kind of data. Those who have invested in BIM quality have a stronger foundation than they realise.
+
+The paradigm shift is not about tools. It is about mindset. From thinking of the BIM model as a deliverable to thinking of it as a living, connected, queryable data infrastructure. From valuing the ability to execute over the ability to judge. From understanding that the technician who knows what to ask the AI is more valuable than the one who knows how to model faster.
+
+That transition is not comfortable. But it is not optional either.
+`,
+  },
 ];
 
 export function getArticulo(slug: string): Articulo | undefined {
