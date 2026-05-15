@@ -262,7 +262,7 @@ Evalúa el nivel de desarrollo (LOD) de cada elemento del modelo y genera un inf
       { titulo: "Interfaz del plugin en Revit", imagen: "/plugins/aecod-design/captura.jpg" },
     ],
     descargas: [
-      { label: "Descargar instalador (.exe)", url: "/plugins/aecod-design/AECOD_DesignPlugin_Installer.exe", tipo: "zip" },
+      { label: "Descargar instalador (.exe)", url: "https://github.com/AecoDigital/AECODigital-Web/releases/download/v1.0.0/AECOD_DesignPlugin_Installer.exe", tipo: "zip" },
     ],
   },
   {
