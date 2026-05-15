@@ -29,7 +29,7 @@ type Plugin = {
   tags: string[];
   manual: string;
   descargas: { label: string; url: string; tipo: string }[];
-  ejemplos: { titulo: string }[];
+  ejemplos: { titulo: string; imagen?: string }[];
 };
 
 export default function PluginDetalleClient({ plugin }: { plugin: Plugin }) {
@@ -146,12 +146,16 @@ export default function PluginDetalleClient({ plugin }: { plugin: Plugin }) {
                 <div className="grid sm:grid-cols-2 gap-4">
                   {plugin.ejemplos.map((ej, i) => (
                     <div key={i} className="rounded-lg overflow-hidden border border-gray-100">
-                      <div className="h-44 bg-gradient-to-br from-[#e8f1fb] to-[#f0f7ff] flex items-center justify-center">
-                        <div className="text-center">
-                          <div className="text-3xl font-black text-[#0066cc] opacity-20 font-mono">IMG</div>
-                          <div className="text-xs text-gray-400 mt-1">{pd.imageSoon}</div>
+                      {ej.imagen ? (
+                        <img src={ej.imagen} alt={ej.titulo} className="w-full h-44 object-cover" />
+                      ) : (
+                        <div className="h-44 bg-gradient-to-br from-[#e8f1fb] to-[#f0f7ff] flex items-center justify-center">
+                          <div className="text-center">
+                            <div className="text-3xl font-black text-[#0066cc] opacity-20 font-mono">IMG</div>
+                            <div className="text-xs text-gray-400 mt-1">{pd.imageSoon}</div>
+                          </div>
                         </div>
-                      </div>
+                      )}
                       <div className="px-3 py-2 bg-gray-50">
                         <p className="text-xs text-gray-500">{ej.titulo}</p>
                       </div>
