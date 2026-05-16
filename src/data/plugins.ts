@@ -21,9 +21,66 @@ export interface Plugin {
   ejemplos: Ejemplo[];
   descargas: Descarga[];
   destacado: boolean;
+  pro?: boolean;
 }
 
 export const plugins: Plugin[] = [
+  {
+    slug: "aecod-ai-connector",
+    nombre: "AECOD AI Connector",
+    categoria: "Revit",
+    descripcion:
+      "Conector PRO que integra inteligencia artificial directamente en Revit. Permite a la IA leer y modificar el modelo en tiempo real: listar elementos, cambiar parámetros, crear muros y niveles, y exportar datos, todo mediante lenguaje natural.",
+    version: "v1.0.0",
+    fecha: "May 2026",
+    tags: ["IA", "Revit", "Automatización", "API", "GPT"],
+    destacado: true,
+    pro: true,
+    manual: `## ¿Qué hace AECOD AI Connector?
+
+AECOD AI Connector es un add-in PRO para Revit que expone una API local a la que se conecta un modelo de inteligencia artificial. Esto permite que la IA interactúe directamente con el modelo BIM en tiempo real usando lenguaje natural, sin necesidad de macros ni scripting manual.
+
+## Requisitos
+
+- Revit 2022 o superior
+- Conexión a internet (para el modelo de IA)
+- Licencia AECOD PRO activa
+
+## Instalación
+
+1. Descarga el instalador \`.exe\`
+2. Cierra Revit si está abierto
+3. Ejecuta el instalador como administrador
+4. Abre Revit — el conector se activa automáticamente en segundo plano
+
+## Herramientas disponibles para la IA
+
+| Herramienta | Descripción |
+|---|---|
+| \`get_model_info\` | Obtiene nombre del proyecto, niveles y conteo total de elementos |
+| \`get_elements\` | Lista elementos por categoría (muros, puertas, ventanas, pilares…) |
+| \`get_selected_elements\` | Devuelve los elementos que el usuario tiene seleccionados en ese momento |
+| \`get_parameters\` | Lee los parámetros de uno o varios elementos concretos |
+| \`set_parameter\` | Modifica un parámetro en uno o varios elementos simultáneamente |
+| \`create_wall\` | Crea un muro entre dos puntos definidos por coordenadas |
+| \`create_level\` | Crea un nivel nuevo a la altura especificada |
+| \`generate_report\` | Exporta datos del modelo a CSV y lo abre automáticamente |
+
+## Ejemplo de uso
+
+> *"Lista todos los muros del nivel 2 y dime cuántos tienen el parámetro de material vacío"*
+
+La IA ejecuta \`get_elements\` + \`get_parameters\` y devuelve el resultado en segundos, sin que el usuario tenga que escribir una sola línea de código.
+
+## Notas
+
+> ⚠️ Ejecutar el instalador con permisos de administrador para que Revit registre el add-in correctamente.
+`,
+    ejemplos: [],
+    descargas: [
+      { label: "Descargar instalador (.exe)", url: "https://github.com/AecoDigital/AECODigital-Web/releases/download/ai-connector-v1.0.0/AECOD_Installer.exe", tipo: "zip" },
+    ],
+  },
   {
     slug: "ifc-checker",
     nombre: "IFC Checker",
