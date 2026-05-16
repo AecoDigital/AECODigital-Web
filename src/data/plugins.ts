@@ -316,10 +316,20 @@ Civil 3D Tools Pack añade un panel dedicado en Civil 3D con herramientas agrupa
 ## Notas
 
 > ⚠️ Ejecutar el instalador con permisos de administrador para que Civil 3D registre el add-in correctamente.
+
+## Instalación alternativa (ZIP)
+
+Si el instalador .exe es bloqueado por tu empresa o antivirus, puedes usar el paquete ZIP:
+
+1. Extrae el ZIP en cualquier carpeta
+2. Doble clic en **Instalar.bat**
+3. Si Windows muestra "¿Ejecutar de todas formas?" → clic en **Más información** → **Ejecutar de todas formas**
+4. Reinicia Civil 3D → aparece la pestaña **Civil Tools Pack**
 `,
     ejemplos: [],
     descargas: [
       { label: "Descargar instalador (.exe)", url: "https://github.com/AecoDigital/AECODigital-Web/releases/download/civil3d-v1.0.0/Civil3DToolsPack_Setup.exe", tipo: "zip" },
+      { label: "Descargar ZIP (instalación manual)", url: "https://github.com/AecoDigital/AECODigital-Web/releases/download/civil3d-v1.0.0/Civil3DToolsPack_v1.0.zip", tipo: "zip" },
     ],
   },
   {
