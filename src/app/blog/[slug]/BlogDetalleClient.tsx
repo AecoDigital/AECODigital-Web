@@ -61,7 +61,7 @@ export default function BlogDetalleClient({ articulo }: { articulo: Articulo }) 
   const catColor = CATEGORIA_COLORS[categoria] ?? "#0066cc";
 
   return (
-    <main className="pt-28 pb-24 px-6 min-h-screen">
+    <main className="pt-28 pb-24 px-6 min-h-screen overflow-x-hidden">
       <div className="max-w-6xl mx-auto">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-xs text-gray-400 mb-8">
@@ -74,7 +74,7 @@ export default function BlogDetalleClient({ articulo }: { articulo: Articulo }) 
 
         <div className="grid lg:grid-cols-4 gap-8 items-start">
           {/* Sidebar */}
-          <aside className="lg:col-span-1 space-y-4 lg:sticky lg:top-24">
+          <aside className="lg:col-span-1 space-y-4 lg:sticky lg:top-24 min-w-0">
             <div className="p-5 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200">
               <span
                 className="inline-block text-xs font-semibold px-2.5 py-1 rounded-full mb-3"
@@ -118,7 +118,7 @@ export default function BlogDetalleClient({ articulo }: { articulo: Articulo }) 
           </aside>
 
           {/* Contenido */}
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-3 min-w-0">
             <div className="p-6 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200">
               <div className="prose prose-gray max-w-none
                 prose-headings:font-bold prose-headings:text-gray-900
