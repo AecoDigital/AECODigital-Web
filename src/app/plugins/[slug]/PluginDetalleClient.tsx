@@ -51,7 +51,7 @@ export default function PluginDetalleClient({ plugin }: { plugin: Plugin }) {
 
         <div className="grid lg:grid-cols-4 gap-6 lg:gap-8 items-start">
           {/* Sidebar */}
-          <aside className="lg:col-span-1 space-y-4 lg:sticky lg:top-24">
+          <aside className="lg:col-span-1 space-y-4 lg:sticky lg:top-24 min-w-0">
             <div className="p-5 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200">
               <span
                 className="inline-block text-xs font-semibold px-2.5 py-1 rounded-full mb-3"
@@ -116,7 +116,7 @@ export default function PluginDetalleClient({ plugin }: { plugin: Plugin }) {
           </aside>
 
           {/* Contenido principal */}
-          <div className="lg:col-span-3 space-y-8">
+          <div className="lg:col-span-3 space-y-8 min-w-0">
             <div className="p-6 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200">
               <h2 className="text-lg font-bold text-gray-900 mb-6 pb-4 border-b border-gray-100">
                 {pd.manual}
