@@ -1293,7 +1293,6 @@ export default function BimViewerClient() {
         {/* Tab: Sección */}
         {hasModel && leftTab === "section" && (
           <div className="flex-1 overflow-y-auto py-3 px-4">
-            {/* Toggle Section Box */}
             <label className="flex items-center gap-2 mb-4 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -1318,70 +1317,9 @@ export default function BimViewerClient() {
 
             {sectionBoxActive && (
               <>
-                <p className="text-[9px] text-gray-400 mb-3 leading-relaxed">
-                  Arrastra las caras en el visor o ajusta los sliders.
+                <p className="text-[9px] text-gray-400 mb-4 leading-relaxed">
+                  Arrastra las caras de la caja en el visor para recortar el modelo.
                 </p>
-
-                {(
-                  [
-                    { label: "X", color: "#ef4444", state: sectionX,
-                      setter: (v: SectionAxis) => { setSectionX(v); sectionRef.current = { ...sectionRef.current, x: v }; } },
-                    { label: "Y", color: "#22c55e", state: sectionY,
-                      setter: (v: SectionAxis) => { setSectionY(v); sectionRef.current = { ...sectionRef.current, y: v }; } },
-                    { label: "Z", color: "#3b82f6", state: sectionZ,
-                      setter: (v: SectionAxis) => { setSectionZ(v); sectionRef.current = { ...sectionRef.current, z: v }; } },
-                  ] as const
-                ).map(({ label, color, state, setter }) => {
-                  const step = state.bboxMax !== state.bboxMin ? (state.bboxMax - state.bboxMin) / 200 : 0.01;
-                  return (
-                    <div key={label} className="mb-4">
-                      <span className="text-[10px] font-bold" style={{ color }}>{label}</span>
-                      <div className="mt-1.5 space-y-1.5">
-                        {/* Min slider */}
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[9px] text-gray-400 w-5 shrink-0">Min</span>
-                          <input
-                            type="range" min={state.bboxMin} max={state.bboxMax} step={step}
-                            value={state.minVal}
-                            onChange={(e) => {
-                              const v = Math.min(parseFloat(e.target.value), state.maxVal - 0.01);
-                              const ns = { ...state, minVal: v };
-                              setter(ns);
-                              updateSectionBox();
-                              applyClippingPlanes();
-                            }}
-                            className="flex-1 h-1 rounded-full appearance-none cursor-pointer"
-                            style={{ accentColor: color }}
-                          />
-                          <span className="text-[9px] font-mono text-gray-400 w-9 text-right shrink-0">
-                            {state.minVal.toFixed(1)}
-                          </span>
-                        </div>
-                        {/* Max slider */}
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[9px] text-gray-400 w-5 shrink-0">Max</span>
-                          <input
-                            type="range" min={state.bboxMin} max={state.bboxMax} step={step}
-                            value={state.maxVal}
-                            onChange={(e) => {
-                              const v = Math.max(parseFloat(e.target.value), state.minVal + 0.01);
-                              const ns = { ...state, maxVal: v };
-                              setter(ns);
-                              updateSectionBox();
-                              applyClippingPlanes();
-                            }}
-                            className="flex-1 h-1 rounded-full appearance-none cursor-pointer"
-                            style={{ accentColor: color }}
-                          />
-                          <span className="text-[9px] font-mono text-gray-400 w-9 text-right shrink-0">
-                            {state.maxVal.toFixed(1)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-
                 <button
                   onClick={() => {
                     const nx = { ...sectionX, enabled: false, minVal: sectionX.bboxMin, maxVal: sectionX.bboxMax };
