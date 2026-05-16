@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { error } = await resend.emails.send({
-    from: "AECO Digital <info@aecodigital.com>",
+    from: "AECO Digital <contacto@aecodigital.com>",
     to: email,
     subject: "Modelo BIM compartido contigo",
     html: `
