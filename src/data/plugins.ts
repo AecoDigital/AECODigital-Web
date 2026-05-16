@@ -266,6 +266,63 @@ Evalúa el nivel de desarrollo (LOD) de cada elemento del modelo y genera un inf
     ],
   },
   {
+    slug: "civil3d-tools-pack",
+    nombre: "Civil 3D Tools Pack",
+    categoria: "Civil 3D",
+    descripcion:
+      "Pack de herramientas para Civil 3D que automatiza las tareas más repetitivas en proyectos de infraestructura: exportación de perfiles, movimiento de tierras, generación de cunetas, interoperabilidad GIS/IFC y planos automáticos planta-perfil.",
+    version: "v1.0.0",
+    fecha: "May 2026",
+    tags: ["Civil 3D", "GIS", "IFC", "Excel", "Infraestructura", "Automatización"],
+    destacado: true,
+    manual: `## ¿Qué hace Civil 3D Tools Pack?
+
+Civil 3D Tools Pack añade un panel dedicado en Civil 3D con herramientas agrupadas en cuatro áreas: Productividad, Cálculo, Interoperabilidad y Reportes.
+
+## Requisitos
+
+- AutoCAD Civil 3D 2022 o superior
+- .NET Framework 4.8
+- Licencia AECOD activa (incluida durante 365 días)
+
+## Instalación
+
+1. Descarga el instalador \`.exe\`
+2. Cierra Civil 3D si está abierto
+3. Ejecuta el instalador como administrador
+4. Abre Civil 3D — aparecerá el panel **AECOD Civil Tools**
+
+## Herramientas incluidas
+
+### Productividad
+- **Exportar Perfiles → Excel** — exporta los perfiles longitudinales del proyecto a una hoja Excel estructurada
+- **Verificar Normas** — comprueba que el diseño cumple las normas configurables del proyecto (radios mínimos, pendientes, etc.)
+- **Renombrar con patrón** — renombra alineaciones, perfiles y superficies siguiendo un patrón personalizable
+
+### Cálculo
+- **Movimiento de Tierras** — calcula volúmenes de desmonte y terraplén y genera el diagrama de masas automáticamente
+- **Generar Cunetas 3D** — crea la geometría 3D de cunetas a partir de los perfiles transversales
+- **Interferencias entre redes** — detecta conflictos entre redes de drenaje, saneamiento y servicios
+
+### Interoperabilidad
+- **Exportar GIS (Shapefile)** — exporta alineaciones, perfiles y superficies a Shapefile compatible con ArcGIS/QGIS
+- **Sincronizar Excel (bidireccional)** — lee y escribe parámetros de elementos Civil 3D desde/hacia Excel
+- **Exportar IFC 2x3** — exporta el modelo Civil 3D a formato IFC 2x3 para coordinación BIM
+
+### Reportes
+- **Planos Automáticos** — genera los layouts de planta-perfil automáticamente con cajetín y escala configurables
+- **Extractor de Metrados** — genera el listado de metrados del proyecto en Excel listo para presupuesto
+
+## Notas
+
+> ⚠️ Ejecutar el instalador con permisos de administrador para que Civil 3D registre el add-in correctamente.
+`,
+    ejemplos: [],
+    descargas: [
+      { label: "Descargar instalador (.exe)", url: "https://github.com/AecoDigital/AECODigital-Web/releases/download/civil3d-v1.0.0/Civil3DToolsPack_Setup.exe", tipo: "zip" },
+    ],
+  },
+  {
     slug: "bim-dashboard",
     nombre: "BIM Dashboard KPIs",
     categoria: "Python",
