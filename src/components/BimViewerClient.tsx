@@ -219,9 +219,56 @@ interface CatItem {
 
 interface SectionAxis {
   enabled: boolean;
-  value: number;
-  min: number;
-  max: number;
+  minVal: number;
+  maxVal: number;
+  bboxMin: number;
+  bboxMax: number;
+}
+
+function createSectionBox(scene: THREE.Scene): {
+  group: THREE.Group;
+  wire: THREE.LineSegments;
+  handles: THREE.Mesh[];
+} {
+  const group = new THREE.Group();
+
+  const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1));
+  const wire = new THREE.LineSegments(
+    edges,
+    new THREE.LineBasicMaterial({ color: 0x0066cc, depthTest: false })
+  );
+  wire.renderOrder = 999;
+  group.add(wire);
+
+  const faceConfigs = [
+    { color: 0xef4444, rotX: 0,           rotY: Math.PI / 2 }, // X-min
+    { color: 0xef4444, rotX: 0,           rotY: Math.PI / 2 }, // X-max
+    { color: 0x22c55e, rotX: -Math.PI / 2, rotY: 0          }, // Y-min
+    { color: 0x22c55e, rotX: -Math.PI / 2, rotY: 0          }, // Y-max
+    { color: 0x3b82f6, rotX: 0,           rotY: 0           }, // Z-min
+    { color: 0x3b82f6, rotX: 0,           rotY: 0           }, // Z-max
+  ];
+
+  const handles: THREE.Mesh[] = [];
+  for (const { color, rotX, rotY } of faceConfigs) {
+    const geo = new THREE.PlaneGeometry(1, 1);
+    const mat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.08,
+      side: THREE.DoubleSide,
+      depthTest: false,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.set(rotX, rotY, 0);
+    mesh.renderOrder = 998;
+    group.add(mesh);
+    handles.push(mesh);
+  }
+
+  scene.add(group);
+  group.visible = false;
+  return { group, wire, handles };
 }
 
 export default function BimViewerClient() {
@@ -239,6 +286,21 @@ export default function BimViewerClient() {
   const selectedItemsRef = useRef<{ modelId: string; localId: number }[]>([]);
   const currentModelIdRef = useRef<string | null>(null);
 
+  const sectionRef = useRef<{ x: SectionAxis; y: SectionAxis; z: SectionAxis }>({
+    x: { enabled: false, minVal: 0, maxVal: 0, bboxMin: 0, bboxMax: 0 },
+    y: { enabled: false, minVal: 0, maxVal: 0, bboxMin: 0, bboxMax: 0 },
+    z: { enabled: false, minVal: 0, maxVal: 0, bboxMin: 0, bboxMax: 0 },
+  });
+  const sectionBoxGroupRef   = useRef<THREE.Group | null>(null);
+  const sectionBoxWireRef    = useRef<THREE.LineSegments | null>(null);
+  const sectionBoxHandlesRef = useRef<THREE.Mesh[]>([]);
+  const sectionBoxEnabledRef = useRef(false);
+  const dragHandleDataRef    = useRef<{
+    axis: "x" | "y" | "z";
+    dir: "min" | "max";
+    plane: THREE.Plane;
+  } | null>(null);
+
   const [isDragging, setIsDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hasModel, setHasModel] = useState(false);
@@ -253,9 +315,59 @@ export default function BimViewerClient() {
   const [error, setError] = useState<string | null>(null);
   const [leftTab, setLeftTab] = useState<"tree" | "cats" | "section">("tree");
   const [categories, setCategories] = useState<CatItem[]>([]);
-  const [sectionX, setSectionX] = useState<SectionAxis>({ enabled: false, value: 0, min: 0, max: 0 });
-  const [sectionY, setSectionY] = useState<SectionAxis>({ enabled: false, value: 0, min: 0, max: 0 });
-  const [sectionZ, setSectionZ] = useState<SectionAxis>({ enabled: false, value: 0, min: 0, max: 0 });
+  const [sectionBoxActive, setSectionBoxActive] = useState(false);
+  const [sectionX, setSectionX] = useState<SectionAxis>({ enabled: false, minVal: 0, maxVal: 0, bboxMin: 0, bboxMax: 0 });
+  const [sectionY, setSectionY] = useState<SectionAxis>({ enabled: false, minVal: 0, maxVal: 0, bboxMin: 0, bboxMax: 0 });
+  const [sectionZ, setSectionZ] = useState<SectionAxis>({ enabled: false, minVal: 0, maxVal: 0, bboxMin: 0, bboxMax: 0 });
+
+  // Sincronizar ref con estado React (accesible en closures de useEffect)
+  useEffect(() => {
+    sectionRef.current = { x: sectionX, y: sectionY, z: sectionZ };
+    sectionBoxEnabledRef.current = sectionBoxActive;
+  }, [sectionX, sectionY, sectionZ, sectionBoxActive]);
+
+  const applyClippingPlanes = useCallback(() => {
+    const r = worldRef.current?.renderer as any;
+    const renderer: THREE.WebGLRenderer | undefined = r?.three;
+    if (!renderer) return;
+    const { x, y, z } = sectionRef.current;
+    const planes: THREE.Plane[] = [];
+    if (x.enabled) {
+      planes.push(new THREE.Plane(new THREE.Vector3(1, 0, 0), -x.minVal));
+      planes.push(new THREE.Plane(new THREE.Vector3(-1, 0, 0), x.maxVal));
+    }
+    if (y.enabled) {
+      planes.push(new THREE.Plane(new THREE.Vector3(0, 1, 0), -y.minVal));
+      planes.push(new THREE.Plane(new THREE.Vector3(0, -1, 0), y.maxVal));
+    }
+    if (z.enabled) {
+      planes.push(new THREE.Plane(new THREE.Vector3(0, 0, 1), -z.minVal));
+      planes.push(new THREE.Plane(new THREE.Vector3(0, 0, -1), z.maxVal));
+    }
+    renderer.clippingPlanes = planes;
+  }, []);
+
+  const updateSectionBox = useCallback(() => {
+    const { x, y, z } = sectionRef.current;
+    const cx = (x.minVal + x.maxVal) / 2;
+    const cy = (y.minVal + y.maxVal) / 2;
+    const cz = (z.minVal + z.maxVal) / 2;
+    const sx = Math.max(x.maxVal - x.minVal, 0.001);
+    const sy = Math.max(y.maxVal - y.minVal, 0.001);
+    const sz = Math.max(z.maxVal - z.minVal, 0.001);
+    const wire = sectionBoxWireRef.current;
+    if (wire) { wire.position.set(cx, cy, cz); wire.scale.set(sx, sy, sz); }
+    const [xMinH, xMaxH, yMinH, yMaxH, zMinH, zMaxH] = sectionBoxHandlesRef.current;
+    // X faces (rotY=π/2): local X → world Z, local Y → world Y
+    if (xMinH) { xMinH.position.set(x.minVal, cy, cz); xMinH.scale.set(sz, sy, 1); }
+    if (xMaxH) { xMaxH.position.set(x.maxVal, cy, cz); xMaxH.scale.set(sz, sy, 1); }
+    // Y faces (rotX=-π/2): local X → world X, local Y → world Z
+    if (yMinH) { yMinH.position.set(cx, y.minVal, cz); yMinH.scale.set(sx, sz, 1); }
+    if (yMaxH) { yMaxH.position.set(cx, y.maxVal, cz); yMaxH.scale.set(sx, sz, 1); }
+    // Z faces (no rotation): local X → world X, local Y → world Y
+    if (zMinH) { zMinH.position.set(cx, cy, z.minVal); zMinH.scale.set(sx, sy, 1); }
+    if (zMaxH) { zMaxH.position.set(cx, cy, z.maxVal); zMaxH.scale.set(sx, sy, 1); }
+  }, []);
 
   // Reaplicar colores persistidos tras cualquier resetHighlight
   const reapplyColors = useCallback(async (fragments: OBC.FragmentsManager) => {
@@ -458,6 +570,144 @@ export default function BimViewerClient() {
       canvas.addEventListener("mousedown", onMouseDown);
       canvas.addEventListener("mouseup", onMouseUp);
       canvas.addEventListener("contextmenu", onContextMenu);
+
+      // ── Section box drag ──────────────────────────────────────────────
+      const HANDLE_AXES: Array<{ axis: "x" | "y" | "z"; dir: "min" | "max" }> = [
+        { axis: "x", dir: "min" }, { axis: "x", dir: "max" },
+        { axis: "y", dir: "min" }, { axis: "y", dir: "max" },
+        { axis: "z", dir: "min" }, { axis: "z", dir: "max" },
+      ];
+      const sectionRaycaster = new THREE.Raycaster();
+      let wasSectionDrag = false;
+
+      const getNDC = (e: MouseEvent) => {
+        const rect = canvas.getBoundingClientRect();
+        return new THREE.Vector2(
+          ((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1
+        );
+      };
+
+      const applyPlanesFromRef = () => {
+        const r = worldRef.current?.renderer as any;
+        const renderer: THREE.WebGLRenderer | undefined = r?.three;
+        if (!renderer) return;
+        const { x, y, z } = sectionRef.current;
+        const planes: THREE.Plane[] = [];
+        if (x.enabled) {
+          planes.push(new THREE.Plane(new THREE.Vector3(1, 0, 0), -x.minVal));
+          planes.push(new THREE.Plane(new THREE.Vector3(-1, 0, 0), x.maxVal));
+        }
+        if (y.enabled) {
+          planes.push(new THREE.Plane(new THREE.Vector3(0, 1, 0), -y.minVal));
+          planes.push(new THREE.Plane(new THREE.Vector3(0, -1, 0), y.maxVal));
+        }
+        if (z.enabled) {
+          planes.push(new THREE.Plane(new THREE.Vector3(0, 0, 1), -z.minVal));
+          planes.push(new THREE.Plane(new THREE.Vector3(0, 0, -1), z.maxVal));
+        }
+        renderer.clippingPlanes = planes;
+      };
+
+      const updateBoxFromRef = () => {
+        const { x, y, z } = sectionRef.current;
+        const cx = (x.minVal + x.maxVal) / 2;
+        const cy = (y.minVal + y.maxVal) / 2;
+        const cz = (z.minVal + z.maxVal) / 2;
+        const sx = Math.max(x.maxVal - x.minVal, 0.001);
+        const sy = Math.max(y.maxVal - y.minVal, 0.001);
+        const sz = Math.max(z.maxVal - z.minVal, 0.001);
+        const wire = sectionBoxWireRef.current;
+        if (wire) { wire.position.set(cx, cy, cz); wire.scale.set(sx, sy, sz); }
+        const [xMinH, xMaxH, yMinH, yMaxH, zMinH, zMaxH] = sectionBoxHandlesRef.current;
+        if (xMinH) { xMinH.position.set(x.minVal, cy, cz); xMinH.scale.set(sz, sy, 1); }
+        if (xMaxH) { xMaxH.position.set(x.maxVal, cy, cz); xMaxH.scale.set(sz, sy, 1); }
+        if (yMinH) { yMinH.position.set(cx, y.minVal, cz); yMinH.scale.set(sx, sz, 1); }
+        if (yMaxH) { yMaxH.position.set(cx, y.maxVal, cz); yMaxH.scale.set(sx, sz, 1); }
+        if (zMinH) { zMinH.position.set(cx, cy, z.minVal); zMinH.scale.set(sx, sy, 1); }
+        if (zMaxH) { zMaxH.position.set(cx, cy, z.maxVal); zMaxH.scale.set(sx, sy, 1); }
+      };
+
+      const onSectionMouseDown = (e: MouseEvent) => {
+        if (!sectionBoxEnabledRef.current || sectionBoxHandlesRef.current.length === 0) return;
+        const cam = (world.camera as any).three as THREE.Camera | undefined;
+        if (!cam) return;
+        sectionRaycaster.setFromCamera(getNDC(e), cam);
+        const hits = sectionRaycaster.intersectObjects(sectionBoxHandlesRef.current, false);
+        if (hits.length === 0) return;
+        const idx = sectionBoxHandlesRef.current.indexOf(hits[0].object as THREE.Mesh);
+        if (idx < 0) return;
+        const { axis, dir } = HANDLE_AXES[idx];
+        const s = sectionRef.current;
+        const pos = dir === "min" ? s[axis].minVal : s[axis].maxVal;
+        const normal = axis === "x"
+          ? new THREE.Vector3(1, 0, 0)
+          : axis === "y" ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, 1);
+        dragHandleDataRef.current = { axis, dir, plane: new THREE.Plane(normal, -pos) };
+        mouseDownX = -9999; mouseDownY = -9999; // prevents click-select
+        const ctrl = (world.camera as any).controls;
+        if (ctrl) ctrl.enabled = false;
+      };
+
+      const onSectionMouseMove = (e: MouseEvent) => {
+        const cam = (world.camera as any).three as THREE.Camera | undefined;
+        if (!cam) return;
+        sectionRaycaster.setFromCamera(getNDC(e), cam);
+
+        const drag = dragHandleDataRef.current;
+        if (drag) {
+          // ── Drag active ──
+          wasSectionDrag = true;
+          const hitPoint = new THREE.Vector3();
+          if (!sectionRaycaster.ray.intersectPlane(drag.plane, hitPoint)) return;
+          const { axis, dir } = drag;
+          const s = sectionRef.current;
+          const raw = hitPoint[axis];
+          const clamped = Math.max(s[axis].bboxMin, Math.min(s[axis].bboxMax, raw));
+          const newAxis: SectionAxis = dir === "min"
+            ? { ...s[axis], minVal: Math.min(clamped, s[axis].maxVal - 0.01) }
+            : { ...s[axis], maxVal: Math.max(clamped, s[axis].minVal + 0.01) };
+          sectionRef.current = { ...s, [axis]: newAxis };
+          if (axis === "x") setSectionX(newAxis);
+          else if (axis === "y") setSectionY(newAxis);
+          else setSectionZ(newAxis);
+          updateBoxFromRef();
+          applyPlanesFromRef();
+          return;
+        }
+
+        // ── Hover highlight ──
+        if (!sectionBoxEnabledRef.current || sectionBoxHandlesRef.current.length === 0) return;
+        const hits = sectionRaycaster.intersectObjects(sectionBoxHandlesRef.current, false);
+        const hovIdx = hits.length > 0 ? sectionBoxHandlesRef.current.indexOf(hits[0].object as THREE.Mesh) : -1;
+        sectionBoxHandlesRef.current.forEach((h, i) => {
+          (h.material as THREE.MeshBasicMaterial).opacity = i === hovIdx ? 0.28 : 0.08;
+        });
+        canvas.style.cursor = hovIdx >= 0 ? "grab" : "";
+      };
+
+      const onSectionMouseUp = () => {
+        if (!dragHandleDataRef.current) return;
+        dragHandleDataRef.current = null;
+        canvas.style.cursor = "";
+        const ctrl = (world.camera as any).controls;
+        if (ctrl) ctrl.enabled = true;
+        // wasSectionDrag stays true so onMouseUp skips selection
+        setTimeout(() => { wasSectionDrag = false; }, 0);
+      };
+
+      // Override onMouseUp to skip selection after section drag
+      const originalOnMouseUp = onMouseUp;
+      const guardedOnMouseUp = async (e: MouseEvent) => {
+        if (wasSectionDrag) return;
+        await originalOnMouseUp(e);
+      };
+      canvas.removeEventListener("mouseup", onMouseUp);
+      canvas.addEventListener("mouseup", guardedOnMouseUp);
+
+      canvas.addEventListener("mousedown", onSectionMouseDown);
+      canvas.addEventListener("mousemove", onSectionMouseMove);
+      canvas.addEventListener("mouseup", onSectionMouseUp);
     }
 
     init();
@@ -531,9 +781,37 @@ export default function BimViewerClient() {
           if (fb.min.x !== fb.max.x || fb.min.y !== fb.max.y || fb.min.z !== fb.max.z) box = fb;
         }
         if (box) {
-          setSectionX({ enabled: false, value: box.max.x, min: box.min.x, max: box.max.x });
-          setSectionY({ enabled: false, value: box.max.y, min: box.min.y, max: box.max.y });
-          setSectionZ({ enabled: false, value: box.max.z, min: box.min.z, max: box.max.z });
+          const nx: SectionAxis = { enabled: false, minVal: box.min.x, maxVal: box.max.x, bboxMin: box.min.x, bboxMax: box.max.x };
+          const ny: SectionAxis = { enabled: false, minVal: box.min.y, maxVal: box.max.y, bboxMin: box.min.y, bboxMax: box.max.y };
+          const nz: SectionAxis = { enabled: false, minVal: box.min.z, maxVal: box.max.z, bboxMin: box.min.z, bboxMax: box.max.z };
+          setSectionX(nx); setSectionY(ny); setSectionZ(nz);
+          sectionRef.current = { x: nx, y: ny, z: nz };
+
+          // Crear o reinicializar la caja de sección
+          if (sectionBoxGroupRef.current) {
+            world.scene.three.remove(sectionBoxGroupRef.current);
+          }
+          const { group, wire, handles } = createSectionBox(world.scene.three);
+          sectionBoxGroupRef.current = group;
+          sectionBoxWireRef.current  = wire;
+          sectionBoxHandlesRef.current = handles;
+
+          // Posicionar la caja en el bbox completo del modelo
+          const cx = (box.min.x + box.max.x) / 2;
+          const cy = (box.min.y + box.max.y) / 2;
+          const cz = (box.min.z + box.max.z) / 2;
+          const sx = Math.max(box.max.x - box.min.x, 0.001);
+          const sy = Math.max(box.max.y - box.min.y, 0.001);
+          const szv = Math.max(box.max.z - box.min.z, 0.001);
+          wire.position.set(cx, cy, cz);
+          wire.scale.set(sx, sy, szv);
+          const [xMinH, xMaxH, yMinH, yMaxH, zMinH, zMaxH] = handles;
+          if (xMinH) { xMinH.position.set(box.min.x, cy, cz); xMinH.scale.set(szv, sy, 1); }
+          if (xMaxH) { xMaxH.position.set(box.max.x, cy, cz); xMaxH.scale.set(szv, sy, 1); }
+          if (yMinH) { yMinH.position.set(cx, box.min.y, cz); yMinH.scale.set(sx, szv, 1); }
+          if (yMaxH) { yMaxH.position.set(cx, box.max.y, cz); yMaxH.scale.set(sx, szv, 1); }
+          if (zMinH) { zMinH.position.set(cx, cy, box.min.z); zMinH.scale.set(sx, sy, 1); }
+          if (zMaxH) { zMaxH.position.set(cx, cy, box.max.z); zMaxH.scale.set(sx, sy, 1); }
         }
       }
     } catch (err) {
@@ -749,17 +1027,6 @@ export default function BimViewerClient() {
     </svg>
   );
 
-  const applyClippingPlanes = useCallback((x: SectionAxis, y: SectionAxis, z: SectionAxis) => {
-    const r = worldRef.current?.renderer as any;
-    const renderer: THREE.WebGLRenderer | undefined = r?.three;
-    if (!renderer) return;
-    const planes: THREE.Plane[] = [];
-    if (x.enabled) planes.push(new THREE.Plane(new THREE.Vector3(-1, 0, 0), x.value));
-    if (y.enabled) planes.push(new THREE.Plane(new THREE.Vector3(0, -1, 0), y.value));
-    if (z.enabled) planes.push(new THREE.Plane(new THREE.Vector3(0, 0, -1), z.value));
-    renderer.clippingPlanes = planes;
-  }, []);
-
   const filteredProps = panelFilter.trim()
     ? (panel?.properties ?? []).filter(
         (p) =>
@@ -881,127 +1148,113 @@ export default function BimViewerClient() {
         {/* Tab: Sección */}
         {hasModel && leftTab === "section" && (
           <div className="flex-1 overflow-y-auto py-3 px-4">
-            {/* Eje X */}
-            {(() => {
-              const color = "#ef4444";
-              return (
-                <div className="mb-5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <input type="checkbox" checked={sectionX.enabled}
-                      onChange={(e) => {
-                        const nx = { ...sectionX, enabled: e.target.checked };
-                        setSectionX(nx);
-                        applyClippingPlanes(nx, sectionY, sectionZ);
-                      }}
-                      className="shrink-0 w-3 h-3" style={{ accentColor: color }} />
-                    <span className="text-[11px] font-semibold" style={{ color }}>Eje X</span>
-                    <span className="text-[10px] text-gray-400 ml-auto font-mono">{sectionX.value.toFixed(2)}</span>
-                  </div>
-                  <input type="range" min={sectionX.min} max={sectionX.max}
-                    step={sectionX.max !== sectionX.min ? (sectionX.max - sectionX.min) / 200 : 0.01}
-                    value={sectionX.value} disabled={!sectionX.enabled}
-                    onChange={(e) => {
-                      const nx = { ...sectionX, value: parseFloat(e.target.value) };
-                      setSectionX(nx);
-                      applyClippingPlanes(nx, sectionY, sectionZ);
-                    }}
-                    className={`w-full h-1 rounded-full appearance-none cursor-pointer ${!sectionX.enabled ? "opacity-30 cursor-not-allowed" : ""}`}
-                    style={{ accentColor: color }} />
-                  {sectionX.min !== sectionX.max && (
-                    <div className="flex justify-between mt-0.5">
-                      <span className="text-[8px] text-gray-300">{sectionX.min.toFixed(1)}</span>
-                      <span className="text-[8px] text-gray-300">{sectionX.max.toFixed(1)}</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Eje Y */}
-            {(() => {
-              const color = "#22c55e";
-              return (
-                <div className="mb-5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <input type="checkbox" checked={sectionY.enabled}
-                      onChange={(e) => {
-                        const ny = { ...sectionY, enabled: e.target.checked };
-                        setSectionY(ny);
-                        applyClippingPlanes(sectionX, ny, sectionZ);
-                      }}
-                      className="shrink-0 w-3 h-3" style={{ accentColor: color }} />
-                    <span className="text-[11px] font-semibold" style={{ color }}>Eje Y</span>
-                    <span className="text-[10px] text-gray-400 ml-auto font-mono">{sectionY.value.toFixed(2)}</span>
-                  </div>
-                  <input type="range" min={sectionY.min} max={sectionY.max}
-                    step={sectionY.max !== sectionY.min ? (sectionY.max - sectionY.min) / 200 : 0.01}
-                    value={sectionY.value} disabled={!sectionY.enabled}
-                    onChange={(e) => {
-                      const ny = { ...sectionY, value: parseFloat(e.target.value) };
-                      setSectionY(ny);
-                      applyClippingPlanes(sectionX, ny, sectionZ);
-                    }}
-                    className={`w-full h-1 rounded-full appearance-none cursor-pointer ${!sectionY.enabled ? "opacity-30 cursor-not-allowed" : ""}`}
-                    style={{ accentColor: color }} />
-                  {sectionY.min !== sectionY.max && (
-                    <div className="flex justify-between mt-0.5">
-                      <span className="text-[8px] text-gray-300">{sectionY.min.toFixed(1)}</span>
-                      <span className="text-[8px] text-gray-300">{sectionY.max.toFixed(1)}</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Eje Z */}
-            {(() => {
-              const color = "#3b82f6";
-              return (
-                <div className="mb-5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <input type="checkbox" checked={sectionZ.enabled}
-                      onChange={(e) => {
-                        const nz = { ...sectionZ, enabled: e.target.checked };
-                        setSectionZ(nz);
-                        applyClippingPlanes(sectionX, sectionY, nz);
-                      }}
-                      className="shrink-0 w-3 h-3" style={{ accentColor: color }} />
-                    <span className="text-[11px] font-semibold" style={{ color }}>Eje Z</span>
-                    <span className="text-[10px] text-gray-400 ml-auto font-mono">{sectionZ.value.toFixed(2)}</span>
-                  </div>
-                  <input type="range" min={sectionZ.min} max={sectionZ.max}
-                    step={sectionZ.max !== sectionZ.min ? (sectionZ.max - sectionZ.min) / 200 : 0.01}
-                    value={sectionZ.value} disabled={!sectionZ.enabled}
-                    onChange={(e) => {
-                      const nz = { ...sectionZ, value: parseFloat(e.target.value) };
-                      setSectionZ(nz);
-                      applyClippingPlanes(sectionX, sectionY, nz);
-                    }}
-                    className={`w-full h-1 rounded-full appearance-none cursor-pointer ${!sectionZ.enabled ? "opacity-30 cursor-not-allowed" : ""}`}
-                    style={{ accentColor: color }} />
-                  {sectionZ.min !== sectionZ.max && (
-                    <div className="flex justify-between mt-0.5">
-                      <span className="text-[8px] text-gray-300">{sectionZ.min.toFixed(1)}</span>
-                      <span className="text-[8px] text-gray-300">{sectionZ.max.toFixed(1)}</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {(sectionX.enabled || sectionY.enabled || sectionZ.enabled) && (
-              <button
-                onClick={() => {
-                  const nx = { ...sectionX, enabled: false, value: sectionX.max };
-                  const ny = { ...sectionY, enabled: false, value: sectionY.max };
-                  const nz = { ...sectionZ, enabled: false, value: sectionZ.max };
+            {/* Toggle Section Box */}
+            <label className="flex items-center gap-2 mb-4 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={sectionBoxActive}
+                onChange={(e) => {
+                  const active = e.target.checked;
+                  setSectionBoxActive(active);
+                  sectionBoxEnabledRef.current = active;
+                  if (sectionBoxGroupRef.current) sectionBoxGroupRef.current.visible = active;
+                  const nx = { ...sectionX, enabled: active };
+                  const ny = { ...sectionY, enabled: active };
+                  const nz = { ...sectionZ, enabled: active };
                   setSectionX(nx); setSectionY(ny); setSectionZ(nz);
-                  applyClippingPlanes(nx, ny, nz);
+                  sectionRef.current = { x: nx, y: ny, z: nz };
+                  applyClippingPlanes();
                 }}
-                className="w-full px-3 py-1.5 text-[11px] font-medium text-[#0066cc] border border-[#0066cc] rounded-lg hover:bg-blue-50 transition-colors"
-              >
-                Quitar planos
-              </button>
+                className="shrink-0 w-3.5 h-3.5"
+                style={{ accentColor: "#0066cc" }}
+              />
+              <span className="text-[11px] font-semibold text-gray-700">Section Box</span>
+            </label>
+
+            {sectionBoxActive && (
+              <>
+                <p className="text-[9px] text-gray-400 mb-3 leading-relaxed">
+                  Arrastra las caras en el visor o ajusta los sliders.
+                </p>
+
+                {(
+                  [
+                    { label: "X", color: "#ef4444", state: sectionX,
+                      setter: (v: SectionAxis) => { setSectionX(v); sectionRef.current = { ...sectionRef.current, x: v }; } },
+                    { label: "Y", color: "#22c55e", state: sectionY,
+                      setter: (v: SectionAxis) => { setSectionY(v); sectionRef.current = { ...sectionRef.current, y: v }; } },
+                    { label: "Z", color: "#3b82f6", state: sectionZ,
+                      setter: (v: SectionAxis) => { setSectionZ(v); sectionRef.current = { ...sectionRef.current, z: v }; } },
+                  ] as const
+                ).map(({ label, color, state, setter }) => {
+                  const step = state.bboxMax !== state.bboxMin ? (state.bboxMax - state.bboxMin) / 200 : 0.01;
+                  return (
+                    <div key={label} className="mb-4">
+                      <span className="text-[10px] font-bold" style={{ color }}>{label}</span>
+                      <div className="mt-1.5 space-y-1.5">
+                        {/* Min slider */}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[9px] text-gray-400 w-5 shrink-0">Min</span>
+                          <input
+                            type="range" min={state.bboxMin} max={state.bboxMax} step={step}
+                            value={state.minVal}
+                            onChange={(e) => {
+                              const v = Math.min(parseFloat(e.target.value), state.maxVal - 0.01);
+                              const ns = { ...state, minVal: v };
+                              setter(ns);
+                              updateSectionBox();
+                              applyClippingPlanes();
+                            }}
+                            className="flex-1 h-1 rounded-full appearance-none cursor-pointer"
+                            style={{ accentColor: color }}
+                          />
+                          <span className="text-[9px] font-mono text-gray-400 w-9 text-right shrink-0">
+                            {state.minVal.toFixed(1)}
+                          </span>
+                        </div>
+                        {/* Max slider */}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[9px] text-gray-400 w-5 shrink-0">Max</span>
+                          <input
+                            type="range" min={state.bboxMin} max={state.bboxMax} step={step}
+                            value={state.maxVal}
+                            onChange={(e) => {
+                              const v = Math.max(parseFloat(e.target.value), state.minVal + 0.01);
+                              const ns = { ...state, maxVal: v };
+                              setter(ns);
+                              updateSectionBox();
+                              applyClippingPlanes();
+                            }}
+                            className="flex-1 h-1 rounded-full appearance-none cursor-pointer"
+                            style={{ accentColor: color }}
+                          />
+                          <span className="text-[9px] font-mono text-gray-400 w-9 text-right shrink-0">
+                            {state.maxVal.toFixed(1)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <button
+                  onClick={() => {
+                    const nx = { ...sectionX, enabled: false, minVal: sectionX.bboxMin, maxVal: sectionX.bboxMax };
+                    const ny = { ...sectionY, enabled: false, minVal: sectionY.bboxMin, maxVal: sectionY.bboxMax };
+                    const nz = { ...sectionZ, enabled: false, minVal: sectionZ.bboxMin, maxVal: sectionZ.bboxMax };
+                    setSectionX(nx); setSectionY(ny); setSectionZ(nz);
+                    setSectionBoxActive(false);
+                    sectionBoxEnabledRef.current = false;
+                    if (sectionBoxGroupRef.current) sectionBoxGroupRef.current.visible = false;
+                    sectionRef.current = { x: nx, y: ny, z: nz };
+                    const r = worldRef.current?.renderer as any;
+                    if (r?.three) r.three.clippingPlanes = [];
+                  }}
+                  className="w-full px-3 py-1.5 text-[11px] font-medium text-[#0066cc] border border-[#0066cc] rounded-lg hover:bg-blue-50 transition-colors"
+                >
+                  Quitar sección
+                </button>
+              </>
             )}
           </div>
         )}
