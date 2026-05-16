@@ -241,27 +241,23 @@ function createSectionBox(scene: THREE.Scene): {
   wire.renderOrder = 999;
   group.add(wire);
 
-  const faceConfigs = [
-    { color: 0xef4444, rotX: 0,           rotY: Math.PI / 2 }, // X-min
-    { color: 0xef4444, rotX: 0,           rotY: Math.PI / 2 }, // X-max
-    { color: 0x22c55e, rotX: -Math.PI / 2, rotY: 0          }, // Y-min
-    { color: 0x22c55e, rotX: -Math.PI / 2, rotY: 0          }, // Y-max
-    { color: 0x3b82f6, rotX: 0,           rotY: 0           }, // Z-min
-    { color: 0x3b82f6, rotX: 0,           rotY: 0           }, // Z-max
-  ];
+  // Caras como BoxGeometry finas (mucho más fiables para raycasting que PlaneGeometry)
+  // Cada caja cubre la cara completa del section box con grosor mínimo en la dirección normal
+  // El grosor real en escena se aplica vía scale: la dim en la dirección del eje = ~0.05 * tamaño
+  // Aquí creamos cajas 1×1×1; el scale se aplica en updateSectionBox/updateBoxFromRef
+  // X faces: scale.x mínimo, Y faces: scale.y mínimo, Z faces: scale.z mínimo
+  const FACE_COLORS = [0xef4444, 0xef4444, 0x22c55e, 0x22c55e, 0x3b82f6, 0x3b82f6];
 
   const handles: THREE.Mesh[] = [];
-  for (const { color, rotX, rotY } of faceConfigs) {
-    const geo = new THREE.PlaneGeometry(1, 1);
+  for (const color of FACE_COLORS) {
+    const geo = new THREE.BoxGeometry(1, 1, 1);
     const mat = new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: 0.08,
-      side: THREE.DoubleSide,
-      depthTest: false,
+      opacity: 0.10,
+      depthWrite: false,
     });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.rotation.set(rotX, rotY, 0);
     mesh.renderOrder = 998;
     group.add(mesh);
     handles.push(mesh);
@@ -338,6 +334,7 @@ export default function BimViewerClient() {
     const r = worldRef.current?.renderer as any;
     const renderer: THREE.WebGLRenderer | undefined = r?.three;
     if (!renderer) return;
+    renderer.localClippingEnabled = true;
     const { x, y, z } = sectionRef.current;
     const planes: THREE.Plane[] = [];
     if (x.enabled) {
@@ -366,15 +363,19 @@ export default function BimViewerClient() {
     const wire = sectionBoxWireRef.current;
     if (wire) { wire.position.set(cx, cy, cz); wire.scale.set(sx, sy, sz); }
     const [xMinH, xMaxH, yMinH, yMaxH, zMinH, zMaxH] = sectionBoxHandlesRef.current;
-    // X faces (rotY=π/2): local X → world Z, local Y → world Y
-    if (xMinH) { xMinH.position.set(x.minVal, cy, cz); xMinH.scale.set(sz, sy, 1); }
-    if (xMaxH) { xMaxH.position.set(x.maxVal, cy, cz); xMaxH.scale.set(sz, sy, 1); }
-    // Y faces (rotX=-π/2): local X → world X, local Y → world Z
-    if (yMinH) { yMinH.position.set(cx, y.minVal, cz); yMinH.scale.set(sx, sz, 1); }
-    if (yMaxH) { yMaxH.position.set(cx, y.maxVal, cz); yMaxH.scale.set(sx, sz, 1); }
-    // Z faces (no rotation): local X → world X, local Y → world Y
-    if (zMinH) { zMinH.position.set(cx, cy, z.minVal); zMinH.scale.set(sx, sy, 1); }
-    if (zMaxH) { zMaxH.position.set(cx, cy, z.maxVal); zMaxH.scale.set(sx, sy, 1); }
+    // Cajas finas: la dim del eje normal es 0.05*tamaño para ser fácilmente clicables
+    const tx = Math.max(sx * 0.05, 0.05);
+    const ty = Math.max(sy * 0.05, 0.05);
+    const tz = Math.max(sz * 0.05, 0.05);
+    // X faces: finas en X, cubre todo Y y Z
+    if (xMinH) { xMinH.position.set(x.minVal, cy, cz); xMinH.scale.set(tx, sy, sz); }
+    if (xMaxH) { xMaxH.position.set(x.maxVal, cy, cz); xMaxH.scale.set(tx, sy, sz); }
+    // Y faces: finas en Y, cubre todo X y Z
+    if (yMinH) { yMinH.position.set(cx, y.minVal, cz); yMinH.scale.set(sx, ty, sz); }
+    if (yMaxH) { yMaxH.position.set(cx, y.maxVal, cz); yMaxH.scale.set(sx, ty, sz); }
+    // Z faces: finas en Z, cubre todo X y Y
+    if (zMinH) { zMinH.position.set(cx, cy, z.minVal); zMinH.scale.set(sx, sy, tz); }
+    if (zMaxH) { zMaxH.position.set(cx, cy, z.maxVal); zMaxH.scale.set(sx, sy, tz); }
   }, []);
 
   // Reaplicar colores persistidos tras cualquier resetHighlight
@@ -448,6 +449,9 @@ export default function BimViewerClient() {
       componentsRef.current = components;
       worldRef.current = world;
       readyRef.current = true;
+
+      // Necesario para que renderer.clippingPlanes funcione en Three.js
+      world.renderer.three.localClippingEnabled = true;
 
       const canvas = world.renderer.three.domElement;
       let mouseDownX = 0;
@@ -638,7 +642,8 @@ export default function BimViewerClient() {
 
       const onSectionMouseDown = (e: MouseEvent) => {
         if (!sectionBoxEnabledRef.current || sectionBoxHandlesRef.current.length === 0) return;
-        const cam = (world.camera as any).three as THREE.Camera | undefined;
+        const camAny = world.camera as any;
+        const cam: THREE.Camera | undefined = camAny.three ?? camAny.activeCamera ?? camAny.camera;
         if (!cam) return;
         sectionRaycaster.setFromCamera(getNDC(e), cam);
         const hits = sectionRaycaster.intersectObjects(sectionBoxHandlesRef.current, false);
@@ -658,7 +663,8 @@ export default function BimViewerClient() {
       };
 
       const onSectionMouseMove = (e: MouseEvent) => {
-        const cam = (world.camera as any).three as THREE.Camera | undefined;
+        const camAny = world.camera as any;
+        const cam: THREE.Camera | undefined = camAny.three ?? camAny.activeCamera ?? camAny.camera;
         if (!cam) return;
         sectionRaycaster.setFromCamera(getNDC(e), cam);
 
