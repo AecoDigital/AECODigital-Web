@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.4",
     "@tailwindcss/typography": "^0.5.19",
     "@thatopen/components": "^3.4.6",
     "@thatopen/components-front": "^3.4.3",

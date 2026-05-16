@@ -4,9 +4,10 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import * as OBC from "@thatopen/components";
 import * as FRAGS from "@thatopen/fragments";
 import * as THREE from "three";
-import { FolderOpen, Search, Copy, Check, X } from "lucide-react";
+import { FolderOpen, Search, Copy, Check, X, Share2, Loader2 } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import ModelTree, { type TreeNode } from "./ModelTree";
+import { supabase, IFC_BUCKET } from "@/lib/supabase";
 
 
 function _typeCode(d: any): number {
@@ -300,6 +301,13 @@ export default function BimViewerClient() {
     dir: "min" | "max";
     plane: THREE.Plane;
   } | null>(null);
+
+  const currentFileRef = useRef<File | null>(null);
+  const [shareState, setShareState] = useState<"idle" | "uploading" | "ready" | "error">("idle");
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [shareLinkCopied, setShareLinkCopied] = useState(false);
+  const [shareEmail, setShareEmail] = useState("");
+  const [emailState, setEmailState] = useState<"idle" | "sending" | "sent" | "error">("idle");
 
   const [isDragging, setIsDragging] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -964,9 +972,57 @@ export default function BimViewerClient() {
     });
   };
 
+  const handleShare = useCallback(async () => {
+    if (shareState === "ready") { setShareState("idle"); setShareLink(null); return; }
+    const file = currentFileRef.current;
+    if (!file) return;
+    setShareState("uploading");
+    try {
+      const id = crypto.randomUUID();
+      const { error } = await supabase.storage.from(IFC_BUCKET).upload(`${id}.ifc`, file, {
+        contentType: "application/octet-stream",
+        upsert: false,
+      });
+      if (error) throw error;
+      const link = `${window.location.origin}/bim-viewer?model=${id}`;
+      setShareLink(link);
+      setShareState("ready");
+      setShareEmail("");
+      setEmailState("idle");
+    } catch {
+      setShareState("error");
+      setTimeout(() => setShareState("idle"), 2000);
+    }
+  }, [shareState]);
+
+  const handleCopyLink = useCallback(async () => {
+    if (!shareLink) return;
+    await navigator.clipboard.writeText(shareLink);
+    setShareLinkCopied(true);
+    setTimeout(() => setShareLinkCopied(false), 2000);
+  }, [shareLink]);
+
+  const handleSendEmail = useCallback(async () => {
+    if (!shareLink || !shareEmail) return;
+    setEmailState("sending");
+    try {
+      const res = await fetch("/api/share-model", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: shareEmail, link: shareLink, filename: currentFileRef.current?.name }),
+      });
+      if (!res.ok) throw new Error();
+      setEmailState("sent");
+      setShareEmail("");
+    } catch {
+      setEmailState("error");
+      setTimeout(() => setEmailState("idle"), 2000);
+    }
+  }, [shareLink, shareEmail]);
+
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) loadIfc(file);
+    if (file) { currentFileRef.current = file; loadIfc(file); }
     e.target.value = "";
   };
 
@@ -974,8 +1030,29 @@ export default function BimViewerClient() {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
-    if (file) loadIfc(file);
+    if (file) { currentFileRef.current = file; loadIfc(file); }
   };
+
+  // Auto-cargar modelo desde URL (?model=uuid)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const modelId = params.get("model");
+    if (!modelId) return;
+    const load = async () => {
+      try {
+        const { data, error } = await supabase.storage.from(IFC_BUCKET).download(`${modelId}.ifc`);
+        if (error || !data) return;
+        const file = new File([data], `${modelId}.ifc`, { type: "application/octet-stream" });
+        currentFileRef.current = file;
+        loadIfc(file);
+      } catch { /* ignorar */ }
+    };
+    // Esperar a que el visor esté listo
+    const interval = setInterval(() => {
+      if (readyRef.current) { clearInterval(interval); load(); }
+    }, 200);
+    return () => clearInterval(interval);
+  }, [loadIfc]);
 
   const hasOverrides = hiddenItems.length > 0 || coloredCount > 0;
 
@@ -1049,6 +1126,74 @@ export default function BimViewerClient() {
               Abrir archivo IFC
             </div>
           </label>
+          {hasModel && (
+            <button
+              onClick={handleShare}
+              disabled={shareState === "uploading"}
+              className={`mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-colors select-none ${
+                shareState === "ready"
+                  ? "border-[#0066cc] bg-blue-50 text-[#0066cc]"
+                  : shareState === "error"
+                  ? "border-red-300 text-red-500 bg-red-50"
+                  : "border-[#0066cc] text-[#0066cc] hover:bg-blue-50"
+              }`}
+            >
+              {shareState === "uploading" ? (
+                <><Loader2 size={12} className="animate-spin" /> Subiendo...</>
+              ) : shareState === "error" ? (
+                <>Error al compartir</>
+              ) : (
+                <><Share2 size={12} /> {shareState === "ready" ? "Cerrar" : "Compartir"}</>
+              )}
+            </button>
+          )}
+
+          {/* Panel de compartir */}
+          {shareState === "ready" && shareLink && (
+            <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
+              {/* Link copiable */}
+              <div>
+                <p className="text-[10px] text-gray-400 mb-1">Link del modelo</p>
+                <button
+                  onClick={handleCopyLink}
+                  className="w-full flex items-center gap-1.5 px-2 py-1.5 bg-white border border-gray-200 rounded-lg hover:border-[#0066cc] transition-colors group"
+                >
+                  <span className="flex-1 text-[10px] text-gray-500 truncate text-left font-mono">
+                    {shareLink.replace("https://", "")}
+                  </span>
+                  {shareLinkCopied ? <Check size={11} className="text-green-500 shrink-0" /> : <Copy size={11} className="text-gray-400 shrink-0 group-hover:text-[#0066cc]" />}
+                </button>
+              </div>
+
+              {/* Enviar por email */}
+              <div>
+                <p className="text-[10px] text-gray-400 mb-1">Enviar por email</p>
+                <input
+                  type="email"
+                  placeholder="destinatario@email.com"
+                  value={shareEmail}
+                  onChange={(e) => { setShareEmail(e.target.value); setEmailState("idle"); }}
+                  className="w-full px-2 py-1.5 text-[11px] border border-gray-200 rounded-lg outline-none focus:border-[#0066cc] bg-white"
+                />
+                <button
+                  onClick={handleSendEmail}
+                  disabled={!shareEmail || emailState === "sending"}
+                  className={`mt-1.5 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-lg transition-colors ${
+                    emailState === "sent"
+                      ? "bg-green-500 text-white"
+                      : emailState === "error"
+                      ? "bg-red-500 text-white"
+                      : "bg-[#0066cc] text-white hover:bg-[#004d99] disabled:opacity-40"
+                  }`}
+                >
+                  {emailState === "sending" ? <><Loader2 size={11} className="animate-spin" /> Enviando...</> :
+                   emailState === "sent"    ? <><Check size={11} /> ¡Enviado!</> :
+                   emailState === "error"   ? <>Error al enviar</> :
+                                             <>Enviar</>}
+                </button>
+              </div>
+            </div>
+          )}
           {error && <p className="mt-1 text-[11px] text-red-500 leading-snug">{error}</p>}
         </div>
 
