@@ -4,9 +4,10 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import * as OBC from "@thatopen/components";
 import * as FRAGS from "@thatopen/fragments";
 import * as THREE from "three";
-import { FolderOpen, Search, Copy, Check, X } from "lucide-react";
+import { FolderOpen, Search, Copy, Check, X, Share2, Loader2 } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import ModelTree, { type TreeNode } from "./ModelTree";
+import { supabase, IFC_BUCKET } from "@/lib/supabase";
 
 
 function _typeCode(d: any): number {
@@ -238,6 +239,9 @@ export default function BimViewerClient() {
   const coloredItemsRef  = useRef<ColoredItem[]>([]);
   const selectedItemsRef = useRef<{ modelId: string; localId: number }[]>([]);
   const currentModelIdRef = useRef<string | null>(null);
+
+  const currentFileRef = useRef<File | null>(null);
+  const [shareState, setShareState] = useState<"idle" | "uploading" | "copied" | "error">("idle");
 
   const [isDragging, setIsDragging] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -686,9 +690,31 @@ export default function BimViewerClient() {
     });
   };
 
+  const handleShare = useCallback(async () => {
+    const file = currentFileRef.current;
+    if (!file) return;
+    setShareState("uploading");
+    try {
+      const id = crypto.randomUUID();
+      const path = `${id}.ifc`;
+      const { error } = await supabase.storage.from(IFC_BUCKET).upload(path, file, {
+        contentType: "application/octet-stream",
+        upsert: false,
+      });
+      if (error) throw error;
+      const link = `${window.location.origin}/bim-viewer?model=${id}`;
+      await navigator.clipboard.writeText(link);
+      setShareState("copied");
+      setTimeout(() => setShareState("idle"), 3000);
+    } catch {
+      setShareState("error");
+      setTimeout(() => setShareState("idle"), 3000);
+    }
+  }, []);
+
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) loadIfc(file);
+    if (file) { currentFileRef.current = file; loadIfc(file); }
     e.target.value = "";
   };
 
@@ -696,8 +722,29 @@ export default function BimViewerClient() {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
-    if (file) loadIfc(file);
+    if (file) { currentFileRef.current = file; loadIfc(file); }
   };
+
+  // Auto-cargar modelo desde URL (?model=uuid)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const modelId = params.get("model");
+    if (!modelId) return;
+    const load = async () => {
+      try {
+        const { data, error } = await supabase.storage.from(IFC_BUCKET).download(`${modelId}.ifc`);
+        if (error || !data) return;
+        const file = new File([data], `${modelId}.ifc`, { type: "application/octet-stream" });
+        currentFileRef.current = file;
+        loadIfc(file);
+      } catch { /* ignorar */ }
+    };
+    // Esperar a que el visor esté listo
+    const interval = setInterval(() => {
+      if (readyRef.current) { clearInterval(interval); load(); }
+    }, 200);
+    return () => clearInterval(interval);
+  }, [loadIfc]);
 
   const hasOverrides = hiddenItems.length > 0 || coloredCount > 0;
 
@@ -782,6 +829,29 @@ export default function BimViewerClient() {
               Abrir archivo IFC
             </div>
           </label>
+          {hasModel && (
+            <button
+              onClick={handleShare}
+              disabled={shareState === "uploading"}
+              className={`mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-colors select-none ${
+                shareState === "copied"
+                  ? "border-green-400 text-green-600 bg-green-50"
+                  : shareState === "error"
+                  ? "border-red-300 text-red-500 bg-red-50"
+                  : "border-[#0066cc] text-[#0066cc] hover:bg-blue-50"
+              }`}
+            >
+              {shareState === "uploading" ? (
+                <><Loader2 size={12} className="animate-spin" /> Subiendo...</>
+              ) : shareState === "copied" ? (
+                <><Check size={12} /> ¡Link copiado!</>
+              ) : shareState === "error" ? (
+                <>Error al compartir</>
+              ) : (
+                <><Share2 size={12} /> Compartir</>
+              )}
+            </button>
+          )}
           {error && <p className="mt-1 text-[11px] text-red-500 leading-snug">{error}</p>}
         </div>
 
