@@ -254,7 +254,8 @@ function createSectionBox(scene: THREE.Scene): {
     const mat = new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: 0.10,
+      opacity: 0.15,
+      depthTest: false,
       depthWrite: false,
     });
     const mesh = new THREE.Mesh(geo, mat);
@@ -296,6 +297,9 @@ export default function BimViewerClient() {
     axis: "x" | "y" | "z";
     dir: "min" | "max";
     plane: THREE.Plane;
+    axisDir: THREE.Vector3;
+    startHit: THREE.Vector3;
+    startVal: number;
   } | null>(null);
 
   const currentFileRef = useRef<File | null>(null);
@@ -632,51 +636,68 @@ export default function BimViewerClient() {
         const wire = sectionBoxWireRef.current;
         if (wire) { wire.position.set(cx, cy, cz); wire.scale.set(sx, sy, sz); }
         const [xMinH, xMaxH, yMinH, yMaxH, zMinH, zMaxH] = sectionBoxHandlesRef.current;
-        if (xMinH) { xMinH.position.set(x.minVal, cy, cz); xMinH.scale.set(sz, sy, 1); }
-        if (xMaxH) { xMaxH.position.set(x.maxVal, cy, cz); xMaxH.scale.set(sz, sy, 1); }
-        if (yMinH) { yMinH.position.set(cx, y.minVal, cz); yMinH.scale.set(sx, sz, 1); }
-        if (yMaxH) { yMaxH.position.set(cx, y.maxVal, cz); yMaxH.scale.set(sx, sz, 1); }
-        if (zMinH) { zMinH.position.set(cx, cy, z.minVal); zMinH.scale.set(sx, sy, 1); }
-        if (zMaxH) { zMaxH.position.set(cx, cy, z.maxVal); zMaxH.scale.set(sx, sy, 1); }
+        const tx = Math.max(sx * 0.05, 0.05);
+        const ty = Math.max(sy * 0.05, 0.05);
+        const tz = Math.max(sz * 0.05, 0.05);
+        if (xMinH) { xMinH.position.set(x.minVal, cy, cz); xMinH.scale.set(tx, sy, sz); }
+        if (xMaxH) { xMaxH.position.set(x.maxVal, cy, cz); xMaxH.scale.set(tx, sy, sz); }
+        if (yMinH) { yMinH.position.set(cx, y.minVal, cz); yMinH.scale.set(sx, ty, sz); }
+        if (yMaxH) { yMaxH.position.set(cx, y.maxVal, cz); yMaxH.scale.set(sx, ty, sz); }
+        if (zMinH) { zMinH.position.set(cx, cy, z.minVal); zMinH.scale.set(sx, sy, tz); }
+        if (zMaxH) { zMaxH.position.set(cx, cy, z.maxVal); zMaxH.scale.set(sx, sy, tz); }
       };
 
-      const onSectionMouseDown = (e: MouseEvent) => {
-        if (!sectionBoxEnabledRef.current || sectionBoxHandlesRef.current.length === 0) return;
+      const getCam = () => {
         const camAny = world.camera as any;
-        const cam: THREE.Camera | undefined = camAny.three ?? camAny.activeCamera ?? camAny.camera;
+        return (camAny.three ?? camAny.activeCamera ?? camAny.camera) as THREE.Camera | undefined;
+      };
+      const getCtrl = () => (world.camera as any).controls ?? (world.camera as any).orbitControls ?? null;
+
+      const onSectionPointerDown = (e: PointerEvent) => {
+        if (!sectionBoxEnabledRef.current || sectionBoxHandlesRef.current.length === 0) return;
+        const cam = getCam();
         if (!cam) return;
         sectionRaycaster.setFromCamera(getNDC(e), cam);
+        // Update world matrices before raycasting
+        sectionBoxHandlesRef.current.forEach(h => h.updateMatrixWorld(true));
         const hits = sectionRaycaster.intersectObjects(sectionBoxHandlesRef.current, false);
         if (hits.length === 0) return;
+        e.stopPropagation();
         const idx = sectionBoxHandlesRef.current.indexOf(hits[0].object as THREE.Mesh);
         if (idx < 0) return;
         const { axis, dir } = HANDLE_AXES[idx];
         const s = sectionRef.current;
-        const pos = dir === "min" ? s[axis].minVal : s[axis].maxVal;
-        const normal = axis === "x"
+        const startVal = dir === "min" ? s[axis].minVal : s[axis].maxVal;
+        const startHit = hits[0].point.clone();
+        const axisDir = axis === "x"
           ? new THREE.Vector3(1, 0, 0)
           : axis === "y" ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, 1);
-        dragHandleDataRef.current = { axis, dir, plane: new THREE.Plane(normal, -pos) };
-        mouseDownX = -9999; mouseDownY = -9999; // prevents click-select
-        const ctrl = (world.camera as any).controls;
+        // View-plane: constraint perpendicular to camera → intersección siempre válida
+        const cameraDir = new THREE.Vector3();
+        cam.getWorldDirection(cameraDir);
+        const viewPlane = new THREE.Plane(cameraDir, -startHit.dot(cameraDir));
+        dragHandleDataRef.current = { axis, dir, plane: viewPlane, axisDir, startHit, startVal };
+        mouseDownX = -9999; mouseDownY = -9999;
+        const ctrl = getCtrl();
         if (ctrl) ctrl.enabled = false;
+        canvas.setPointerCapture(e.pointerId);
       };
 
-      const onSectionMouseMove = (e: MouseEvent) => {
-        const camAny = world.camera as any;
-        const cam: THREE.Camera | undefined = camAny.three ?? camAny.activeCamera ?? camAny.camera;
+      const onSectionPointerMove = (e: PointerEvent) => {
+        const cam = getCam();
         if (!cam) return;
         sectionRaycaster.setFromCamera(getNDC(e), cam);
 
         const drag = dragHandleDataRef.current;
         if (drag) {
-          // ── Drag active ──
           wasSectionDrag = true;
-          const hitPoint = new THREE.Vector3();
-          if (!sectionRaycaster.ray.intersectPlane(drag.plane, hitPoint)) return;
+          const newHit = new THREE.Vector3();
+          if (!sectionRaycaster.ray.intersectPlane(drag.plane, newHit)) return;
+          // Proyectar desplazamiento sobre el eje del drag
+          const displacement = newHit.clone().sub(drag.startHit).dot(drag.axisDir);
+          const raw = drag.startVal + displacement;
           const { axis, dir } = drag;
           const s = sectionRef.current;
-          const raw = hitPoint[axis];
           const clamped = Math.max(s[axis].bboxMin, Math.min(s[axis].bboxMax, raw));
           const newAxis: SectionAxis = dir === "min"
             ? { ...s[axis], minVal: Math.min(clamped, s[axis].maxVal - 0.01) }
@@ -695,18 +716,18 @@ export default function BimViewerClient() {
         const hits = sectionRaycaster.intersectObjects(sectionBoxHandlesRef.current, false);
         const hovIdx = hits.length > 0 ? sectionBoxHandlesRef.current.indexOf(hits[0].object as THREE.Mesh) : -1;
         sectionBoxHandlesRef.current.forEach((h, i) => {
-          (h.material as THREE.MeshBasicMaterial).opacity = i === hovIdx ? 0.28 : 0.08;
+          (h.material as THREE.MeshBasicMaterial).opacity = i === hovIdx ? 0.45 : 0.15;
         });
         canvas.style.cursor = hovIdx >= 0 ? "grab" : "";
       };
 
-      const onSectionMouseUp = () => {
+      const onSectionPointerUp = (e: PointerEvent) => {
         if (!dragHandleDataRef.current) return;
         dragHandleDataRef.current = null;
         canvas.style.cursor = "";
-        const ctrl = (world.camera as any).controls;
+        try { canvas.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+        const ctrl = getCtrl();
         if (ctrl) ctrl.enabled = true;
-        // wasSectionDrag stays true so onMouseUp skips selection
         setTimeout(() => { wasSectionDrag = false; }, 0);
       };
 
@@ -719,9 +740,9 @@ export default function BimViewerClient() {
       canvas.removeEventListener("mouseup", onMouseUp);
       canvas.addEventListener("mouseup", guardedOnMouseUp);
 
-      canvas.addEventListener("mousedown", onSectionMouseDown);
-      canvas.addEventListener("mousemove", onSectionMouseMove);
-      canvas.addEventListener("mouseup", onSectionMouseUp);
+      canvas.addEventListener("pointerdown", onSectionPointerDown);
+      canvas.addEventListener("pointermove", onSectionPointerMove);
+      canvas.addEventListener("pointerup", onSectionPointerUp);
     }
 
     init();
@@ -820,12 +841,15 @@ export default function BimViewerClient() {
           wire.position.set(cx, cy, cz);
           wire.scale.set(sx, sy, szv);
           const [xMinH, xMaxH, yMinH, yMaxH, zMinH, zMaxH] = handles;
-          if (xMinH) { xMinH.position.set(box.min.x, cy, cz); xMinH.scale.set(szv, sy, 1); }
-          if (xMaxH) { xMaxH.position.set(box.max.x, cy, cz); xMaxH.scale.set(szv, sy, 1); }
-          if (yMinH) { yMinH.position.set(cx, box.min.y, cz); yMinH.scale.set(sx, szv, 1); }
-          if (yMaxH) { yMaxH.position.set(cx, box.max.y, cz); yMaxH.scale.set(sx, szv, 1); }
-          if (zMinH) { zMinH.position.set(cx, cy, box.min.z); zMinH.scale.set(sx, sy, 1); }
-          if (zMaxH) { zMaxH.position.set(cx, cy, box.max.z); zMaxH.scale.set(sx, sy, 1); }
+          const tx = Math.max(sx * 0.05, 0.05);
+          const ty = Math.max(sy * 0.05, 0.05);
+          const tz = Math.max(szv * 0.05, 0.05);
+          if (xMinH) { xMinH.position.set(box.min.x, cy, cz); xMinH.scale.set(tx, sy, szv); }
+          if (xMaxH) { xMaxH.position.set(box.max.x, cy, cz); xMaxH.scale.set(tx, sy, szv); }
+          if (yMinH) { yMinH.position.set(cx, box.min.y, cz); yMinH.scale.set(sx, ty, szv); }
+          if (yMaxH) { yMaxH.position.set(cx, box.max.y, cz); yMaxH.scale.set(sx, ty, szv); }
+          if (zMinH) { zMinH.position.set(cx, cy, box.min.z); zMinH.scale.set(sx, sy, tz); }
+          if (zMaxH) { zMaxH.position.set(cx, cy, box.max.z); zMaxH.scale.set(sx, sy, tz); }
         }
       }
     } catch (err) {
