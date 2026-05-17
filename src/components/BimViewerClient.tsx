@@ -832,13 +832,16 @@ export default function BimViewerClient() {
         const ch = _vcSz.y;
 
         const prevAutoClear = renderer.autoClear;
+        const prevPlanes = renderer.clippingPlanes;
         renderer.autoClear = false;
+        renderer.clippingPlanes = [];
         renderer.setScissorTest(true);
         renderer.setScissor(cw - VC_CSS, ch - VC_CSS, VC_CSS, VC_CSS);
         renderer.setViewport(cw - VC_CSS, ch - VC_CSS, VC_CSS, VC_CSS);
         renderer.clearDepth();
         renderer.render(vcSc, vcCam);
         renderer.autoClear = prevAutoClear;
+        renderer.clippingPlanes = prevPlanes;
         renderer.setScissor(0, 0, cw, ch);
         renderer.setScissorTest(false);
         renderer.setViewport(0, 0, cw, ch);
