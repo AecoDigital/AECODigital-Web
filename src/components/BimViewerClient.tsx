@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import * as OBC from "@thatopen/components";
 import * as FRAGS from "@thatopen/fragments";
 import * as THREE from "three";
-import { FolderOpen, Search, Copy, Check, X, Share2, Loader2 } from "lucide-react";
+import { FolderOpen, Search, Copy, Check, X, Share2, Loader2, Camera } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import ModelTree, { type TreeNode } from "./ModelTree";
 import { supabase, IFC_BUCKET } from "@/lib/supabase";
@@ -269,6 +269,35 @@ function createSectionBox(scene: THREE.Scene): {
   return { group, wire, handles };
 }
 
+// ── ViewCube ──────────────────────────────────────────────────────────────────
+const _vcSz = new THREE.Vector2(); // reusable — avoids per-frame allocation
+// materialIndex order para BoxGeometry: +x, -x, +y, -y, +z, -z
+const VC_FACE_DATA = [
+  { label: "R", worldDir: new THREE.Vector3( 1,  0,  0), base: "#8B1A1A", hov: "#cc3333" },
+  { label: "L", worldDir: new THREE.Vector3(-1,  0,  0), base: "#6B1414", hov: "#aa2828" },
+  { label: "T", worldDir: new THREE.Vector3( 0,  1,  0), base: "#1A5C1A", hov: "#2a8a2a" },
+  { label: "B", worldDir: new THREE.Vector3( 0, -1,  0), base: "#144814", hov: "#1d6b1d" },
+  { label: "F", worldDir: new THREE.Vector3( 0,  0,  1), base: "#1A3A7A", hov: "#2a5ab8" },
+  { label: "Bk", worldDir: new THREE.Vector3( 0,  0, -1), base: "#132958", hov: "#1e3e84" },
+];
+
+function makeVCTexture(label: string, hovered: boolean, base: string, hov: string): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = 128; c.height = 128;
+  const ctx = c.getContext("2d")!;
+  ctx.fillStyle = hovered ? hov : base;
+  ctx.fillRect(0, 0, 128, 128);
+  ctx.strokeStyle = hovered ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(2, 2, 124, 124);
+  ctx.fillStyle = "#fff";
+  ctx.font = `bold ${label.length > 1 ? "36px" : "48px"} system-ui, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+
 export default function BimViewerClient() {
   const containerRef = useRef<HTMLDivElement>(null);
   const componentsRef = useRef<OBC.Components | null>(null);
@@ -283,6 +312,17 @@ export default function BimViewerClient() {
   const coloredItemsRef  = useRef<ColoredItem[]>([]);
   const selectedItemsRef = useRef<{ modelId: string; localId: number }[]>([]);
   const currentModelIdRef = useRef<string | null>(null);
+  const modelBboxRef = useRef<THREE.Box3 | null>(null);
+
+  // ViewCube (renderizado en el mismo canvas con scissor)
+  const vcSceneRef    = useRef<THREE.Scene | null>(null);
+  const vcCameraRef   = useRef<THREE.OrthographicCamera | null>(null);
+  const vcMeshRef     = useRef<THREE.Mesh | null>(null);
+  const vcBaseMatsRef = useRef<THREE.MeshBasicMaterial[]>([]);
+  const vcHovMatsRef  = useRef<THREE.MeshBasicMaterial[]>([]);
+  const vcHovIdxRef    = useRef<number | null>(null);
+  const vcRaycasterRef = useRef(new THREE.Raycaster());
+  const vcCleanupRef   = useRef<(() => void) | null>(null);
 
   const sectionRef = useRef<{ x: SectionAxis; y: SectionAxis; z: SectionAxis }>({
     x: { enabled: false, minVal: 0, maxVal: 0, bboxMin: 0, bboxMax: 0 },
@@ -424,7 +464,7 @@ export default function BimViewerClient() {
       >();
 
       world.scene = new OBC.SimpleScene(components);
-      world.renderer = new OBC.SimpleRenderer(components, containerRef.current);
+      world.renderer = new OBC.SimpleRenderer(components, containerRef.current, { preserveDrawingBuffer: true });
       world.camera = new OBC.SimpleCamera(components);
 
       components.init();
@@ -743,6 +783,167 @@ export default function BimViewerClient() {
       canvas.addEventListener("pointerdown", onSectionPointerDown);
       canvas.addEventListener("pointermove", onSectionPointerMove);
       canvas.addEventListener("pointerup", onSectionPointerUp);
+
+      // ── ViewCube integrado en el mismo canvas ─────────────────────────
+      const VC_CSS = 68; // tamaño en px CSS (top-right del canvas 3D)
+
+      const vcScene = new THREE.Scene();
+      vcScene.add(new THREE.AmbientLight(0xffffff, 2));
+      const vcCamera = new THREE.OrthographicCamera(-0.9, 0.9, 0.9, -0.9, 0.1, 100);
+      vcCamera.position.set(0, 0, 5);
+      vcCamera.lookAt(0, 0, 0);
+
+      const vcGeo   = new THREE.BoxGeometry(1.3, 1.3, 1.3);
+      const vcBaseMats = VC_FACE_DATA.map(f =>
+        new THREE.MeshBasicMaterial({ map: makeVCTexture(f.label, false, f.base, f.hov), transparent: true, opacity: 0.28 })
+      );
+      const vcHovMats = VC_FACE_DATA.map(f =>
+        new THREE.MeshBasicMaterial({ map: makeVCTexture(f.label, true, f.base, f.hov), transparent: true, opacity: 0.82 })
+      );
+      const vcMesh = new THREE.Mesh(vcGeo, vcBaseMats as THREE.Material[]);
+      const vcEdges = new THREE.EdgesGeometry(vcGeo);
+      vcMesh.add(new THREE.LineSegments(
+        vcEdges,
+        new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.18 })
+      ));
+      vcScene.add(vcMesh);
+
+      vcSceneRef.current    = vcScene;
+      vcCameraRef.current   = vcCamera;
+      vcMeshRef.current     = vcMesh;
+      vcBaseMatsRef.current = vcBaseMats;
+      vcHovMatsRef.current  = vcHovMats;
+
+      const renderer = world.renderer.three;
+
+      // Renderizar el VC en el top-right del canvas tras cada frame principal
+      const vcAfterRender = () => {
+        const vc = vcMeshRef.current;
+        const vcCam = vcCameraRef.current;
+        const vcSc = vcSceneRef.current;
+        if (!vc || !vcCam || !vcSc) return;
+
+        const mainCam = world.camera.three as THREE.Camera;
+        vc.quaternion.copy(mainCam.quaternion).invert();
+
+        // getSize() devuelve píxeles CSS — que es lo que setViewport/setScissor esperan
+        renderer.getSize(_vcSz);
+        const cw = _vcSz.x;
+        const ch = _vcSz.y;
+
+        const prevAutoClear = renderer.autoClear;
+        renderer.autoClear = false;
+        renderer.setScissorTest(true);
+        renderer.setScissor(cw - VC_CSS, ch - VC_CSS, VC_CSS, VC_CSS);
+        renderer.setViewport(cw - VC_CSS, ch - VC_CSS, VC_CSS, VC_CSS);
+        renderer.clearDepth();
+        renderer.render(vcSc, vcCam);
+        renderer.autoClear = prevAutoClear;
+        renderer.setScissor(0, 0, cw, ch);
+        renderer.setScissorTest(false);
+        renderer.setViewport(0, 0, cw, ch);
+      };
+
+      world.renderer.onAfterUpdate.add(vcAfterRender);
+
+      // Eventos del ViewCube: capture phase para interceptar antes que camera-controls
+      let vcPendingDir: THREE.Vector3 | null = null;
+
+      // Devuelve rect + flags para evitar doble getBoundingClientRect()
+      const vcHitInfo = (e: { clientX: number; clientY: number }) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const inVC = x >= rect.width - VC_CSS && y <= VC_CSS;
+        const ndc = new THREE.Vector2(
+          ((x - (rect.width - VC_CSS)) / VC_CSS) * 2 - 1,
+          -(y / VC_CSS) * 2 + 1
+        );
+        return { inVC, ndc };
+      };
+
+      // pointerdown: interceptar + registrar la cara sobre la que se presionó
+      const onVCPointerDown = (e: PointerEvent) => {
+        const { inVC, ndc } = vcHitInfo(e);
+        if (!inVC) return;
+        e.stopImmediatePropagation();
+
+        const mesh = vcMeshRef.current;
+        const cam  = vcCameraRef.current;
+        if (!mesh || !cam) return;
+        vcRaycasterRef.current.setFromCamera(ndc, cam);
+        const hits = vcRaycasterRef.current.intersectObject(mesh, false);
+        vcPendingDir = (hits.length > 0 && hits[0].face)
+          ? VC_FACE_DATA[hits[0].face.materialIndex].worldDir.clone()
+          : null;
+      };
+
+      // pointerup: navegar si vcPendingDir está guardado
+      const onVCPointerUp = (e: PointerEvent) => {
+        const dir = vcPendingDir;
+        vcPendingDir = null;
+        if (!dir) return;
+        e.stopImmediatePropagation();
+        canvas.style.cursor = "";
+
+        const box = modelBboxRef.current;
+        const w2  = worldRef.current;
+        if (!box || !w2) return;
+        const center = new THREE.Vector3(); box.getCenter(center);
+        const size   = new THREE.Vector3(); box.getSize(size);
+        const d = Math.max(size.x, size.y, size.z) * 2;
+        const controls = (w2.camera as any).controls;
+        if (typeof controls?.setLookAt !== "function") return;
+        const pos = center.clone().addScaledVector(dir, d);
+        controls.setLookAt(pos.x, pos.y, pos.z, center.x, center.y, center.z, true);
+      };
+
+      // mousemove: solo para el hover visual (no afecta a camera-controls)
+      const onVCMouseMove = (e: MouseEvent) => {
+        const { inVC, ndc } = vcHitInfo(e);
+        const mesh = vcMeshRef.current;
+        const cam  = vcCameraRef.current;
+        if (!mesh || !cam) return;
+
+        if (!inVC) {
+          const hi = vcHovIdxRef.current;
+          if (hi !== null) {
+            (mesh.material as THREE.Material[])[hi] = vcBaseMatsRef.current[hi];
+            vcHovIdxRef.current = null;
+            canvas.style.cursor = "";
+          }
+          return;
+        }
+
+        vcRaycasterRef.current.setFromCamera(ndc, cam);
+        const hits = vcRaycasterRef.current.intersectObject(mesh, false);
+        const newIdx = hits.length > 0 && hits[0].face ? hits[0].face.materialIndex : null;
+        const hi = vcHovIdxRef.current;
+        if (newIdx !== hi) {
+          if (hi !== null) (mesh.material as THREE.Material[])[hi] = vcBaseMatsRef.current[hi];
+          if (newIdx !== null) (mesh.material as THREE.Material[])[newIdx] = vcHovMatsRef.current[newIdx];
+          vcHovIdxRef.current = newIdx;
+        }
+        canvas.style.cursor = newIdx !== null ? "pointer" : "default";
+      };
+
+      canvas.addEventListener("pointerdown", onVCPointerDown, { capture: true });
+      canvas.addEventListener("pointerup",   onVCPointerUp,   { capture: true });
+      canvas.addEventListener("mousemove",   onVCMouseMove,   { capture: true });
+
+      vcCleanupRef.current = () => {
+        world.renderer?.onAfterUpdate.remove(vcAfterRender);
+        canvas.removeEventListener("pointerdown", onVCPointerDown, { capture: true });
+        canvas.removeEventListener("pointerup",   onVCPointerUp,   { capture: true });
+        canvas.removeEventListener("mousemove",   onVCMouseMove,   { capture: true });
+        vcGeo.dispose();
+        vcEdges.dispose();
+        vcBaseMats.forEach(m => { m.map?.dispose(); m.dispose(); });
+        vcHovMats.forEach(m => { m.map?.dispose(); m.dispose(); });
+        vcSceneRef.current  = null;
+        vcCameraRef.current = null;
+        vcMeshRef.current   = null;
+      };
     }
 
     init();
@@ -750,6 +951,8 @@ export default function BimViewerClient() {
     return () => {
       disposed = true;
       readyRef.current = false;
+      vcCleanupRef.current?.();
+      vcCleanupRef.current = null;
       if (componentsRef.current) {
         componentsRef.current.dispose();
         componentsRef.current = null;
@@ -816,6 +1019,7 @@ export default function BimViewerClient() {
           if (fb.min.x !== fb.max.x || fb.min.y !== fb.max.y || fb.min.z !== fb.max.z) box = fb;
         }
         if (box) {
+          modelBboxRef.current = box;
           const nx: SectionAxis = { enabled: false, minVal: box.min.x, maxVal: box.max.x, bboxMin: box.min.x, bboxMax: box.max.x };
           const ny: SectionAxis = { enabled: false, minVal: box.min.y, maxVal: box.max.y, bboxMin: box.min.y, bboxMax: box.max.y };
           const nz: SectionAxis = { enabled: false, minVal: box.min.z, maxVal: box.max.z, bboxMin: box.min.z, bboxMax: box.max.z };
@@ -1002,6 +1206,17 @@ export default function BimViewerClient() {
     });
   };
 
+  const handleScreenshot = useCallback(() => {
+    const r = worldRef.current?.renderer as any;
+    const renderer: THREE.WebGLRenderer | undefined = r?.three;
+    if (!renderer) return;
+    const canvas = renderer.domElement;
+    const link = document.createElement("a");
+    link.download = "visor-bim.png";
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  }, []);
+
   const handleShare = useCallback(async () => {
     if (shareState === "ready") { setShareState("idle"); setShareLink(null); return; }
     const file = currentFileRef.current;
@@ -1157,25 +1372,34 @@ export default function BimViewerClient() {
             </div>
           </label>
           {hasModel && (
-            <button
-              onClick={handleShare}
-              disabled={shareState === "uploading"}
-              className={`mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-colors select-none ${
-                shareState === "ready"
-                  ? "border-[#0066cc] bg-blue-50 text-[#0066cc]"
-                  : shareState === "error"
-                  ? "border-red-300 text-red-500 bg-red-50"
-                  : "border-[#0066cc] text-[#0066cc] hover:bg-blue-50"
-              }`}
-            >
-              {shareState === "uploading" ? (
-                <><Loader2 size={12} className="animate-spin" /> Subiendo...</>
-              ) : shareState === "error" ? (
-                <>Error al compartir</>
-              ) : (
-                <><Share2 size={12} /> {shareState === "ready" ? "Cerrar" : "Compartir"}</>
-              )}
-            </button>
+            <div className="mt-2 flex gap-1.5">
+              <button
+                onClick={handleShare}
+                disabled={shareState === "uploading"}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-colors select-none ${
+                  shareState === "ready"
+                    ? "border-[#0066cc] bg-blue-50 text-[#0066cc]"
+                    : shareState === "error"
+                    ? "border-red-300 text-red-500 bg-red-50"
+                    : "border-[#0066cc] text-[#0066cc] hover:bg-blue-50"
+                }`}
+              >
+                {shareState === "uploading" ? (
+                  <><Loader2 size={12} className="animate-spin" /> Subiendo...</>
+                ) : shareState === "error" ? (
+                  <>Error</>
+                ) : (
+                  <><Share2 size={12} /> {shareState === "ready" ? "Cerrar" : "Compartir"}</>
+                )}
+              </button>
+              <button
+                onClick={handleScreenshot}
+                title="Capturar pantalla"
+                className="flex items-center justify-center px-2.5 py-2 text-xs font-medium rounded-lg border border-[#0066cc] text-[#0066cc] hover:bg-blue-50 transition-colors select-none"
+              >
+                <Camera size={12} />
+              </button>
+            </div>
           )}
 
           {/* Panel de compartir */}
@@ -1384,6 +1608,7 @@ export default function BimViewerClient() {
         onDrop={handleDrop}
       >
         <div ref={containerRef} className="w-full h-full" />
+
 
         {isDragging && (
           <div className="absolute inset-0 bg-blue-500/10 border-4 border-dashed border-[#0066cc] flex items-center justify-center z-10 pointer-events-none">
