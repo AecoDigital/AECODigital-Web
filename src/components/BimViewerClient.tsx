@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import * as OBC from "@thatopen/components";
 import * as FRAGS from "@thatopen/fragments";
 import * as THREE from "three";
-import { FolderOpen, Search, Copy, Check, X, Share2, Loader2, Camera } from "lucide-react";
+import { FolderOpen, Search, Copy, Check, X, Share2, Loader2, Camera, Ruler } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import ModelTree, { type TreeNode } from "./ModelTree";
 import { supabase, IFC_BUCKET } from "@/lib/supabase";
@@ -218,6 +218,14 @@ interface CatItem {
   localIds: number[];
 }
 
+interface MeasurementEntry {
+  p1: THREE.Vector3;
+  p2: THREE.Vector3;
+  distance: number;
+  objects: THREE.Object3D[];
+  labelEl: HTMLDivElement;
+}
+
 interface SectionAxis {
   enabled: boolean;
   minVal: number;
@@ -236,25 +244,18 @@ function createSectionBox(scene: THREE.Scene): {
   const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1));
   const wire = new THREE.LineSegments(
     edges,
-    new THREE.LineBasicMaterial({ color: 0x0066cc, depthTest: false })
+    new THREE.LineBasicMaterial({ color: 0xff2222, depthTest: false })
   );
   wire.renderOrder = 999;
   group.add(wire);
 
-  // Caras como BoxGeometry finas (mucho más fiables para raycasting que PlaneGeometry)
-  // Cada caja cubre la cara completa del section box con grosor mínimo en la dirección normal
-  // El grosor real en escena se aplica vía scale: la dim en la dirección del eje = ~0.05 * tamaño
-  // Aquí creamos cajas 1×1×1; el scale se aplica en updateSectionBox/updateBoxFromRef
-  // X faces: scale.x mínimo, Y faces: scale.y mínimo, Z faces: scale.z mínimo
-  const FACE_COLORS = [0xef4444, 0xef4444, 0x22c55e, 0x22c55e, 0x3b82f6, 0x3b82f6];
-
   const handles: THREE.Mesh[] = [];
-  for (const color of FACE_COLORS) {
+  for (let i = 0; i < 6; i++) {
     const geo = new THREE.BoxGeometry(1, 1, 1);
     const mat = new THREE.MeshBasicMaterial({
-      color,
+      color: 0xff2222,
       transparent: true,
-      opacity: 0.15,
+      opacity: 0,
       depthTest: false,
       depthWrite: false,
     });
@@ -298,6 +299,16 @@ function makeVCTexture(label: string, hovered: boolean, base: string, hov: strin
   return new THREE.CanvasTexture(c);
 }
 
+function collectAllLocalIds(nodes: TreeNode[], modelId: string): { modelId: string; localId: number }[] {
+  const result: { modelId: string; localId: number }[] = [];
+  function walk(n: TreeNode) {
+    if (n.localId !== null) result.push({ modelId, localId: n.localId });
+    n.children?.forEach(walk);
+  }
+  nodes.forEach(walk);
+  return result;
+}
+
 export default function BimViewerClient() {
   const containerRef = useRef<HTMLDivElement>(null);
   const componentsRef = useRef<OBC.Components | null>(null);
@@ -311,6 +322,8 @@ export default function BimViewerClient() {
   // Ref siempre actualizado — accesible dentro de closures del useEffect
   const coloredItemsRef  = useRef<ColoredItem[]>([]);
   const selectedItemsRef = useRef<{ modelId: string; localId: number }[]>([]);
+  const ghostedItemsRef  = useRef<{ modelId: string; localId: number }[]>([]);
+  const ghostOpacityRef  = useRef(0.15);
   const currentModelIdRef = useRef<string | null>(null);
   const modelBboxRef = useRef<THREE.Box3 | null>(null);
 
@@ -332,7 +345,22 @@ export default function BimViewerClient() {
   const sectionBoxGroupRef   = useRef<THREE.Group | null>(null);
   const sectionBoxWireRef    = useRef<THREE.LineSegments | null>(null);
   const sectionBoxHandlesRef = useRef<THREE.Mesh[]>([]);
-  const sectionBoxEnabledRef = useRef(false);
+  const sectionBoxEnabledRef  = useRef(false);
+  const sectionBoxVisibleRef  = useRef(true);
+  const boxRotQRef = useRef(new THREE.Quaternion());
+
+  // Medición de distancias
+  const measureModeRef          = useRef(false);
+  const measurePointsRef        = useRef<THREE.Vector3[]>([]);    // 0 o 1 puntos en curso
+  const measureObjectsRef       = useRef<THREE.Object3D[]>([]);   // objetos del punto en curso
+  const completedMeasurementsRef = useRef<MeasurementEntry[]>([]); // mediciones terminadas
+  const measureDistRef          = useRef<number | null>(null);
+  const modelObjectRef          = useRef<THREE.Object3D | null>(null);
+  const measurePreviewLineRef   = useRef<THREE.Line | null>(null);
+  const measureLastHitRef       = useRef<THREE.Vector3 | null>(null);
+  const measureLabelDivRef      = useRef<HTMLDivElement>(null);
+  const measureSnapDivRef       = useRef<HTMLDivElement>(null);
+
   const dragHandleDataRef    = useRef<{
     axis: "x" | "y" | "z";
     dir: "min" | "max";
@@ -360,19 +388,30 @@ export default function BimViewerClient() {
   const [contextMenu, setContextMenu] = useState<ContextState | null>(null);
   const [hiddenItems, setHiddenItems] = useState<HiddenItem[]>([]);
   const [coloredCount, setColoredCount] = useState(0);
+  const [ghostMode, setGhostMode] = useState<"selected" | "others" | null>(null);
+  const [ghostOpacity, setGhostOpacity] = useState(0.15);
+  const [ghostCount, setGhostCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [leftTab, setLeftTab] = useState<"tree" | "cats" | "section">("tree");
   const [categories, setCategories] = useState<CatItem[]>([]);
   const [sectionBoxActive, setSectionBoxActive] = useState(false);
+  const [sectionBoxVisible, setSectionBoxVisible] = useState(true);
+  const [boxRotY, setBoxRotY] = useState(0);
   const [sectionX, setSectionX] = useState<SectionAxis>({ enabled: false, minVal: 0, maxVal: 0, bboxMin: 0, bboxMax: 0 });
   const [sectionY, setSectionY] = useState<SectionAxis>({ enabled: false, minVal: 0, maxVal: 0, bboxMin: 0, bboxMax: 0 });
   const [sectionZ, setSectionZ] = useState<SectionAxis>({ enabled: false, minVal: 0, maxVal: 0, bboxMin: 0, bboxMax: 0 });
+
+  const [measureMode,     setMeasureMode]     = useState(false);
+  const [measureStep,     setMeasureStep]     = useState<0 | 1>(0);
+  const [measureDistance, setMeasureDistance] = useState<number | null>(null);
+  const [measureCount,    setMeasureCount]    = useState(0);
 
   // Sincronizar ref con estado React (accesible en closures de useEffect)
   useEffect(() => {
     sectionRef.current = { x: sectionX, y: sectionY, z: sectionZ };
     sectionBoxEnabledRef.current = sectionBoxActive;
-  }, [sectionX, sectionY, sectionZ, sectionBoxActive]);
+    sectionBoxVisibleRef.current = sectionBoxVisible;
+  }, [sectionX, sectionY, sectionZ, sectionBoxActive, sectionBoxVisible]);
 
   const applyClippingPlanes = useCallback(() => {
     const r = worldRef.current?.renderer as any;
@@ -380,47 +419,60 @@ export default function BimViewerClient() {
     if (!renderer) return;
     renderer.localClippingEnabled = true;
     const { x, y, z } = sectionRef.current;
+    const q = boxRotQRef.current;
+    const lX = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
+    const lY = new THREE.Vector3(0, 1, 0).applyQuaternion(q);
+    const lZ = new THREE.Vector3(0, 0, 1).applyQuaternion(q);
     const planes: THREE.Plane[] = [];
     if (x.enabled) {
-      planes.push(new THREE.Plane(new THREE.Vector3(1, 0, 0), -x.minVal));
-      planes.push(new THREE.Plane(new THREE.Vector3(-1, 0, 0), x.maxVal));
+      planes.push(new THREE.Plane(lX.clone(), -x.minVal));
+      planes.push(new THREE.Plane(lX.clone().negate(), x.maxVal));
     }
     if (y.enabled) {
-      planes.push(new THREE.Plane(new THREE.Vector3(0, 1, 0), -y.minVal));
-      planes.push(new THREE.Plane(new THREE.Vector3(0, -1, 0), y.maxVal));
+      planes.push(new THREE.Plane(lY.clone(), -y.minVal));
+      planes.push(new THREE.Plane(lY.clone().negate(), y.maxVal));
     }
     if (z.enabled) {
-      planes.push(new THREE.Plane(new THREE.Vector3(0, 0, 1), -z.minVal));
-      planes.push(new THREE.Plane(new THREE.Vector3(0, 0, -1), z.maxVal));
+      planes.push(new THREE.Plane(lZ.clone(), -z.minVal));
+      planes.push(new THREE.Plane(lZ.clone().negate(), z.maxVal));
     }
     renderer.clippingPlanes = planes;
   }, []);
 
   const updateSectionBox = useCallback(() => {
     const { x, y, z } = sectionRef.current;
-    const cx = (x.minVal + x.maxVal) / 2;
-    const cy = (y.minVal + y.maxVal) / 2;
-    const cz = (z.minVal + z.maxVal) / 2;
-    const sx = Math.max(x.maxVal - x.minVal, 0.001);
-    const sy = Math.max(y.maxVal - y.minVal, 0.001);
-    const sz = Math.max(z.maxVal - z.minVal, 0.001);
+    const q = boxRotQRef.current;
+    const lX = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
+    const lY = new THREE.Vector3(0, 1, 0).applyQuaternion(q);
+    const lZ = new THREE.Vector3(0, 0, 1).applyQuaternion(q);
+    const midX = (x.minVal + x.maxVal) / 2;
+    const midY = (y.minVal + y.maxVal) / 2;
+    const midZ = (z.minVal + z.maxVal) / 2;
+    const center = new THREE.Vector3()
+      .addScaledVector(lX, midX).addScaledVector(lY, midY).addScaledVector(lZ, midZ);
+    const halfX = (x.maxVal - x.minVal) / 2;
+    const halfY = (y.maxVal - y.minVal) / 2;
+    const halfZ = (z.maxVal - z.minVal) / 2;
+    const sx = Math.max(halfX * 2, 0.001);
+    const sy = Math.max(halfY * 2, 0.001);
+    const sz = Math.max(halfZ * 2, 0.001);
+    const group = sectionBoxGroupRef.current;
+    if (group) { group.position.copy(center); group.quaternion.copy(q); }
     const wire = sectionBoxWireRef.current;
-    if (wire) { wire.position.set(cx, cy, cz); wire.scale.set(sx, sy, sz); }
+    if (wire) { wire.position.set(0, 0, 0); wire.scale.set(sx, sy, sz); }
     const [xMinH, xMaxH, yMinH, yMaxH, zMinH, zMaxH] = sectionBoxHandlesRef.current;
-    // Cajas finas: la dim del eje normal es 0.05*tamaño para ser fácilmente clicables
     const tx = Math.max(sx * 0.05, 0.05);
     const ty = Math.max(sy * 0.05, 0.05);
     const tz = Math.max(sz * 0.05, 0.05);
-    // X faces: finas en X, cubre todo Y y Z
-    if (xMinH) { xMinH.position.set(x.minVal, cy, cz); xMinH.scale.set(tx, sy, sz); }
-    if (xMaxH) { xMaxH.position.set(x.maxVal, cy, cz); xMaxH.scale.set(tx, sy, sz); }
-    // Y faces: finas en Y, cubre todo X y Z
-    if (yMinH) { yMinH.position.set(cx, y.minVal, cz); yMinH.scale.set(sx, ty, sz); }
-    if (yMaxH) { yMaxH.position.set(cx, y.maxVal, cz); yMaxH.scale.set(sx, ty, sz); }
-    // Z faces: finas en Z, cubre todo X y Y
-    if (zMinH) { zMinH.position.set(cx, cy, z.minVal); zMinH.scale.set(sx, sy, tz); }
-    if (zMaxH) { zMaxH.position.set(cx, cy, z.maxVal); zMaxH.scale.set(sx, sy, tz); }
+    if (xMinH) { xMinH.position.set(-halfX, 0, 0); xMinH.scale.set(tx, sy, sz); }
+    if (xMaxH) { xMaxH.position.set( halfX, 0, 0); xMaxH.scale.set(tx, sy, sz); }
+    if (yMinH) { yMinH.position.set(0, -halfY, 0); yMinH.scale.set(sx, ty, sz); }
+    if (yMaxH) { yMaxH.position.set(0,  halfY, 0); yMaxH.scale.set(sx, ty, sz); }
+    if (zMinH) { zMinH.position.set(0, 0, -halfZ); zMinH.scale.set(sx, sy, tz); }
+    if (zMaxH) { zMaxH.position.set(0, 0,  halfZ); zMaxH.scale.set(sx, sy, tz); }
   }, []);
+
+  useEffect(() => { ghostOpacityRef.current = ghostOpacity; }, [ghostOpacity]);
 
   // Reaplicar colores persistidos tras cualquier resetHighlight
   const reapplyColors = useCallback(async (fragments: OBC.FragmentsManager) => {
@@ -430,6 +482,21 @@ export default function BimViewerClient() {
         { [modelId]: new Set([localId]) }
       );
     }
+  }, []);
+
+  // Reaplicar ghost (transparencia) sobre los elementos ghosteados
+  const reapplyGhost = useCallback(async (fragments: OBC.FragmentsManager) => {
+    const items = ghostedItemsRef.current;
+    if (items.length === 0) return;
+    const ghostMap: Record<string, Set<number>> = {};
+    for (const { modelId, localId } of items) {
+      if (!ghostMap[modelId]) ghostMap[modelId] = new Set();
+      ghostMap[modelId].add(localId);
+    }
+    await fragments.highlight(
+      { color: new THREE.Color(0xdde8f5), opacity: ghostOpacityRef.current, transparent: true, renderedFaces: FRAGS.RenderedFaces.TWO },
+      ghostMap
+    );
   }, []);
 
   // Reaplicar highlight de selección (azul) sobre todos los elementos seleccionados
@@ -506,11 +573,201 @@ export default function BimViewerClient() {
         mouseDownY = e.clientY;
       };
 
+      // ── Helpers de medición (THREE objects) ──────────────────────────
+      const markerSize = () => {
+        const bb = modelBboxRef.current;
+        if (!bb) return 0.015;
+        const sz = new THREE.Vector3(); bb.getSize(sz);
+        return Math.max(sz.length() * 0.0015, 0.005);
+      };
+
+      const addMarker = (pt: THREE.Vector3) => {
+        const r = markerSize();
+        const geo = new THREE.SphereGeometry(r, 10, 10);
+        const mat = new THREE.MeshBasicMaterial({ color: 0x00ccff, depthTest: false });
+        const m = new THREE.Mesh(geo, mat);
+        m.position.copy(pt);
+        m.renderOrder = 1000;
+        world.scene.three.add(m);
+        measureObjectsRef.current.push(m);
+      };
+
+      const addMeasureLine = (p1: THREE.Vector3, p2: THREE.Vector3) => {
+        const geo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+        const mat = new THREE.LineBasicMaterial({ color: 0x00ccff, depthTest: false });
+        const line = new THREE.Line(geo, mat);
+        line.renderOrder = 1000;
+        world.scene.three.add(line);
+        measureObjectsRef.current.push(line);
+      };
+
+      const disposeMat = (mat: any) => {
+        if (!mat) return;
+        if (Array.isArray(mat)) mat.forEach((m: any) => m?.dispose?.());
+        else mat.dispose?.();
+      };
+
+      // Línea de previsualización (primer punto → cursor)
+      const previewGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+      const previewLine = new THREE.Line(
+        previewGeo,
+        new THREE.LineBasicMaterial({ color: 0x00ccff, depthTest: false, transparent: true, opacity: 0.55 })
+      );
+      previewLine.renderOrder = 1001;
+      previewLine.visible = false;
+      world.scene.three.add(previewLine);
+      measurePreviewLineRef.current = previewLine;
+
+      const clearMeasureObjects = () => {
+        for (const obj of measureObjectsRef.current) {
+          world.scene.three.remove(obj);
+          (obj as any).geometry?.dispose();
+          disposeMat((obj as any).material);
+        }
+        measureObjectsRef.current = [];
+      };
+
+      // ── Snap a vértices y aristas ──────────────────────────────────────
+      const SNAP_PX = 20; // píxeles de pantalla para activar snap
+
+      const computeSnapPoint = (result: any): { point: THREE.Vector3; snapped: boolean } => {
+        const rawPt = (result.point as THREE.Vector3).clone();
+        const fallback = { point: rawPt, snapped: false };
+        try {
+          if (!result.face || !result.object) return fallback;
+          const mesh = result.object as THREE.Mesh;
+          const posAttr = mesh.geometry?.attributes?.position;
+          if (!posAttr || !posAttr.array) return fallback;
+
+          const { a, b, c } = result.face as THREE.Face;
+          const toWorld = (i: number) =>
+            new THREE.Vector3(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i))
+              .applyMatrix4(mesh.matrixWorld);
+          const verts = [toWorld(a), toWorld(b), toWorld(c)];
+
+          const cam = (world.camera as any).three as THREE.Camera;
+          const rect = canvas.getBoundingClientRect();
+          const toScreen = (v: THREE.Vector3) => {
+            const ndc = v.clone().project(cam);
+            return new THREE.Vector2((ndc.x * 0.5 + 0.5) * rect.width, (-ndc.y * 0.5 + 0.5) * rect.height);
+          };
+          const ptScreen = toScreen(rawPt);
+
+          // Prioridad: vértice
+          for (const v of verts) {
+            if (ptScreen.distanceTo(toScreen(v)) < SNAP_PX) return { point: v, snapped: true };
+          }
+          // Si no: arista más cercana
+          let bestDist = SNAP_PX;
+          let bestPt: THREE.Vector3 | null = null;
+          const edges: [THREE.Vector3, THREE.Vector3][] = [[verts[0], verts[1]], [verts[1], verts[2]], [verts[2], verts[0]]];
+          for (const [e0, e1] of edges) {
+            const closest = new THREE.Vector3();
+            new THREE.Line3(e0, e1).closestPointToPoint(rawPt, true, closest);
+            const d = ptScreen.distanceTo(toScreen(closest));
+            if (d < bestDist) { bestDist = d; bestPt = closest.clone(); }
+          }
+          if (bestPt) return { point: bestPt, snapped: true };
+        } catch { /* geometría del fragmento no accesible, usar punto crudo */ }
+        return fallback;
+      };
+
+      const updateSnapCursor = (snapPt: THREE.Vector3 | null, snapped = false) => {
+        const div = measureSnapDivRef.current;
+        if (!div) return;
+        if (!snapPt) { div.style.display = "none"; return; }
+        const cam = (world.camera as any).three as THREE.Camera;
+        const rect = canvas.getBoundingClientRect();
+        const ndc = snapPt.clone().project(cam);
+        div.style.display = "block";
+        div.style.left = `${(ndc.x * 0.5 + 0.5) * rect.width}px`;
+        div.style.top  = `${(-ndc.y * 0.5 + 0.5) * rect.height}px`;
+        // Snapped a vértice/arista: círculo sólido; punto libre: círculo hueco
+        div.style.background = snapped ? "#00ccff" : "rgba(0,204,255,0.25)";
+        div.style.borderColor = "#00ccff";
+      };
+
+      let snapBusy = false;
+      const onMeasureMouseMove = async () => {
+        if (!measureModeRef.current || snapBusy) return;
+        snapBusy = true;
+        try {
+          const result = (await caster.castRay()) as any;
+          if (!result?.point) { updateSnapCursor(null); return; }
+          try {
+            const { point, snapped } = computeSnapPoint(result);
+            measureLastHitRef.current = point;
+            updateSnapCursor(point, snapped);
+          } catch {
+            measureLastHitRef.current = result.point as THREE.Vector3;
+            updateSnapCursor(result.point as THREE.Vector3);
+          }
+        } finally {
+          snapBusy = false;
+        }
+      };
+      canvas.addEventListener("mousemove", onMeasureMouseMove);
+      canvas.addEventListener("mouseleave", () => {
+        updateSnapCursor(null);
+        measureLastHitRef.current = null;
+        if (measurePreviewLineRef.current) measurePreviewLineRef.current.visible = false;
+      });
+
       const onMouseUp = async (e: MouseEvent) => {
         if (e.button !== 0) return;
         const dx = Math.abs(e.clientX - mouseDownX);
         const dy = Math.abs(e.clientY - mouseDownY);
         if (dx > 5 || dy > 5) return;
+
+        // ── MODO MEDICIÓN ──────────────────────────────────────────────
+        if (measureModeRef.current) {
+          const result = (await caster.castRay()) as any;
+          if (!result?.point) return;
+          let pt: THREE.Vector3;
+          try { pt = computeSnapPoint(result).point; }
+          catch { pt = (result.point as THREE.Vector3).clone(); }
+
+          const pts = measurePointsRef.current;
+
+          if (pts.length === 0) {
+            // Primer punto: marcador en curso
+            addMarker(pt);
+            measurePointsRef.current = [pt];
+            setMeasureStep(1);
+          } else {
+            // Segundo punto: completar medición y empezar nueva
+            const p1 = pts[0];
+            addMarker(pt);
+            addMeasureLine(p1, pt);
+            const dist = p1.distanceTo(pt);
+            measureDistRef.current = dist;
+
+            // Crear etiqueta DOM para esta medición
+            const labelEl = document.createElement("div");
+            labelEl.style.cssText = [
+              "display:block", "position:absolute", "pointer-events:none",
+              "transform:translate(-50%,-130%)", "z-index:20",
+              "background:#0066cc", "color:#fff", "font-size:11px",
+              "font-weight:600", "padding:3px 8px", "border-radius:6px",
+              "box-shadow:0 2px 8px rgba(0,0,102,0.3)", "white-space:nowrap",
+            ].join(";");
+            labelEl.textContent = dist >= 1 ? `${dist.toFixed(3)} m` : `${(dist * 100).toFixed(1)} cm`;
+            canvas.parentElement?.appendChild(labelEl);
+
+            // Guardar medición completada
+            completedMeasurementsRef.current = [
+              ...completedMeasurementsRef.current,
+              { p1, p2: pt, distance: dist, objects: [...measureObjectsRef.current], labelEl },
+            ];
+            measureObjectsRef.current = [];
+            measurePointsRef.current  = [];
+
+            setMeasureDistance(dist);
+            setMeasureCount(completedMeasurementsRef.current.length);
+            setMeasureStep(0); // listo para siguiente medición
+          }
+          return;
+        }
 
         const isMulti = e.ctrlKey || e.metaKey;
         const result = (await caster.castRay()) as any;
@@ -520,6 +777,7 @@ export default function BimViewerClient() {
             selectedItemsRef.current = [];
             await fragments.resetHighlight();
             await reapplyColors(fragments);
+            await reapplyGhost(fragments);
             setPanel(null);
           }
           return;
@@ -541,9 +799,10 @@ export default function BimViewerClient() {
           selectedItemsRef.current = [{ modelId, localId }];
         }
 
-        // Reset → reaplicar colores persistidos → reaplicar selección completa
+        // Reset → reaplicar colores persistidos → ghost → selección completa
         await fragments.resetHighlight();
         await reapplyColors(fragments);
+        await reapplyGhost(fragments);
         await reapplySelection(fragments);
 
         // Construir propiedades mergeadas de todos los elementos seleccionados
@@ -649,42 +908,57 @@ export default function BimViewerClient() {
         const renderer: THREE.WebGLRenderer | undefined = r?.three;
         if (!renderer) return;
         const { x, y, z } = sectionRef.current;
+        const q = boxRotQRef.current;
+        const lX = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
+        const lY = new THREE.Vector3(0, 1, 0).applyQuaternion(q);
+        const lZ = new THREE.Vector3(0, 0, 1).applyQuaternion(q);
         const planes: THREE.Plane[] = [];
         if (x.enabled) {
-          planes.push(new THREE.Plane(new THREE.Vector3(1, 0, 0), -x.minVal));
-          planes.push(new THREE.Plane(new THREE.Vector3(-1, 0, 0), x.maxVal));
+          planes.push(new THREE.Plane(lX.clone(), -x.minVal));
+          planes.push(new THREE.Plane(lX.clone().negate(), x.maxVal));
         }
         if (y.enabled) {
-          planes.push(new THREE.Plane(new THREE.Vector3(0, 1, 0), -y.minVal));
-          planes.push(new THREE.Plane(new THREE.Vector3(0, -1, 0), y.maxVal));
+          planes.push(new THREE.Plane(lY.clone(), -y.minVal));
+          planes.push(new THREE.Plane(lY.clone().negate(), y.maxVal));
         }
         if (z.enabled) {
-          planes.push(new THREE.Plane(new THREE.Vector3(0, 0, 1), -z.minVal));
-          planes.push(new THREE.Plane(new THREE.Vector3(0, 0, -1), z.maxVal));
+          planes.push(new THREE.Plane(lZ.clone(), -z.minVal));
+          planes.push(new THREE.Plane(lZ.clone().negate(), z.maxVal));
         }
         renderer.clippingPlanes = planes;
       };
 
       const updateBoxFromRef = () => {
         const { x, y, z } = sectionRef.current;
-        const cx = (x.minVal + x.maxVal) / 2;
-        const cy = (y.minVal + y.maxVal) / 2;
-        const cz = (z.minVal + z.maxVal) / 2;
-        const sx = Math.max(x.maxVal - x.minVal, 0.001);
-        const sy = Math.max(y.maxVal - y.minVal, 0.001);
-        const sz = Math.max(z.maxVal - z.minVal, 0.001);
+        const q = boxRotQRef.current;
+        const lX = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
+        const lY = new THREE.Vector3(0, 1, 0).applyQuaternion(q);
+        const lZ = new THREE.Vector3(0, 0, 1).applyQuaternion(q);
+        const midX = (x.minVal + x.maxVal) / 2;
+        const midY = (y.minVal + y.maxVal) / 2;
+        const midZ = (z.minVal + z.maxVal) / 2;
+        const center = new THREE.Vector3()
+          .addScaledVector(lX, midX).addScaledVector(lY, midY).addScaledVector(lZ, midZ);
+        const halfX = (x.maxVal - x.minVal) / 2;
+        const halfY = (y.maxVal - y.minVal) / 2;
+        const halfZ = (z.maxVal - z.minVal) / 2;
+        const sx = Math.max(halfX * 2, 0.001);
+        const sy = Math.max(halfY * 2, 0.001);
+        const sz = Math.max(halfZ * 2, 0.001);
+        const group = sectionBoxGroupRef.current;
+        if (group) { group.position.copy(center); group.quaternion.copy(q); }
         const wire = sectionBoxWireRef.current;
-        if (wire) { wire.position.set(cx, cy, cz); wire.scale.set(sx, sy, sz); }
+        if (wire) { wire.position.set(0, 0, 0); wire.scale.set(sx, sy, sz); }
         const [xMinH, xMaxH, yMinH, yMaxH, zMinH, zMaxH] = sectionBoxHandlesRef.current;
         const tx = Math.max(sx * 0.05, 0.05);
         const ty = Math.max(sy * 0.05, 0.05);
         const tz = Math.max(sz * 0.05, 0.05);
-        if (xMinH) { xMinH.position.set(x.minVal, cy, cz); xMinH.scale.set(tx, sy, sz); }
-        if (xMaxH) { xMaxH.position.set(x.maxVal, cy, cz); xMaxH.scale.set(tx, sy, sz); }
-        if (yMinH) { yMinH.position.set(cx, y.minVal, cz); yMinH.scale.set(sx, ty, sz); }
-        if (yMaxH) { yMaxH.position.set(cx, y.maxVal, cz); yMaxH.scale.set(sx, ty, sz); }
-        if (zMinH) { zMinH.position.set(cx, cy, z.minVal); zMinH.scale.set(sx, sy, tz); }
-        if (zMaxH) { zMaxH.position.set(cx, cy, z.maxVal); zMaxH.scale.set(sx, sy, tz); }
+        if (xMinH) { xMinH.position.set(-halfX, 0, 0); xMinH.scale.set(tx, sy, sz); }
+        if (xMaxH) { xMaxH.position.set( halfX, 0, 0); xMaxH.scale.set(tx, sy, sz); }
+        if (yMinH) { yMinH.position.set(0, -halfY, 0); yMinH.scale.set(sx, ty, sz); }
+        if (yMaxH) { yMaxH.position.set(0,  halfY, 0); yMaxH.scale.set(sx, ty, sz); }
+        if (zMinH) { zMinH.position.set(0, 0, -halfZ); zMinH.scale.set(sx, sy, tz); }
+        if (zMaxH) { zMaxH.position.set(0, 0,  halfZ); zMaxH.scale.set(sx, sy, tz); }
       };
 
       const getCam = () => {
@@ -694,11 +968,10 @@ export default function BimViewerClient() {
       const getCtrl = () => (world.camera as any).controls ?? (world.camera as any).orbitControls ?? null;
 
       const onSectionPointerDown = (e: PointerEvent) => {
-        if (!sectionBoxEnabledRef.current || sectionBoxHandlesRef.current.length === 0) return;
+        if (!sectionBoxEnabledRef.current || !sectionBoxVisibleRef.current || sectionBoxHandlesRef.current.length === 0) return;
         const cam = getCam();
         if (!cam) return;
         sectionRaycaster.setFromCamera(getNDC(e), cam);
-        // Update world matrices before raycasting
         sectionBoxHandlesRef.current.forEach(h => h.updateMatrixWorld(true));
         const hits = sectionRaycaster.intersectObjects(sectionBoxHandlesRef.current, false);
         if (hits.length === 0) return;
@@ -709,10 +982,11 @@ export default function BimViewerClient() {
         const s = sectionRef.current;
         const startVal = dir === "min" ? s[axis].minVal : s[axis].maxVal;
         const startHit = hits[0].point.clone();
-        const axisDir = axis === "x"
+        // Eje en espacio local → mundo aplicando la rotación del box
+        const localAxis = axis === "x"
           ? new THREE.Vector3(1, 0, 0)
           : axis === "y" ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, 1);
-        // View-plane: constraint perpendicular to camera → intersección siempre válida
+        const axisDir = localAxis.applyQuaternion(boxRotQRef.current);
         const cameraDir = new THREE.Vector3();
         cam.getWorldDirection(cameraDir);
         const viewPlane = new THREE.Plane(cameraDir, -startHit.dot(cameraDir));
@@ -733,15 +1007,13 @@ export default function BimViewerClient() {
           wasSectionDrag = true;
           const newHit = new THREE.Vector3();
           if (!sectionRaycaster.ray.intersectPlane(drag.plane, newHit)) return;
-          // Proyectar desplazamiento sobre el eje del drag
           const displacement = newHit.clone().sub(drag.startHit).dot(drag.axisDir);
           const raw = drag.startVal + displacement;
           const { axis, dir } = drag;
           const s = sectionRef.current;
-          const clamped = Math.max(s[axis].bboxMin, Math.min(s[axis].bboxMax, raw));
           const newAxis: SectionAxis = dir === "min"
-            ? { ...s[axis], minVal: Math.min(clamped, s[axis].maxVal - 0.01) }
-            : { ...s[axis], maxVal: Math.max(clamped, s[axis].minVal + 0.01) };
+            ? { ...s[axis], minVal: Math.min(raw, s[axis].maxVal - 0.01) }
+            : { ...s[axis], maxVal: Math.max(raw, s[axis].minVal + 0.01) };
           sectionRef.current = { ...s, [axis]: newAxis };
           if (axis === "x") setSectionX(newAxis);
           else if (axis === "y") setSectionY(newAxis);
@@ -752,11 +1024,11 @@ export default function BimViewerClient() {
         }
 
         // ── Hover highlight ──
-        if (!sectionBoxEnabledRef.current || sectionBoxHandlesRef.current.length === 0) return;
+        if (!sectionBoxEnabledRef.current || !sectionBoxVisibleRef.current || sectionBoxHandlesRef.current.length === 0) return;
         const hits = sectionRaycaster.intersectObjects(sectionBoxHandlesRef.current, false);
         const hovIdx = hits.length > 0 ? sectionBoxHandlesRef.current.indexOf(hits[0].object as THREE.Mesh) : -1;
         sectionBoxHandlesRef.current.forEach((h, i) => {
-          (h.material as THREE.MeshBasicMaterial).opacity = i === hovIdx ? 0.45 : 0.15;
+          (h.material as THREE.MeshBasicMaterial).opacity = i === hovIdx ? 0.3 : 0;
         });
         canvas.style.cursor = hovIdx >= 0 ? "grab" : "";
       };
@@ -849,6 +1121,38 @@ export default function BimViewerClient() {
 
       world.renderer.onAfterUpdate.add(vcAfterRender);
 
+      // ── Actualizar etiqueta de medición cada frame (DOM directo, sin setState) ──
+      const measureAfterRender = () => {
+        const cam = (world.camera as any).three as THREE.Camera;
+        const rect = canvas.getBoundingClientRect();
+
+        // Etiquetas de mediciones completadas
+        for (const m of completedMeasurementsRef.current) {
+          const mid = new THREE.Vector3().addVectors(m.p1, m.p2).multiplyScalar(0.5);
+          mid.project(cam);
+          m.labelEl.style.left = `${(mid.x * 0.5 + 0.5) * rect.width}px`;
+          m.labelEl.style.top  = `${(-mid.y * 0.5 + 0.5) * rect.height}px`;
+        }
+
+        // Línea de previsualización
+        const pl = measurePreviewLineRef.current;
+        if (pl) {
+          const pts = measurePointsRef.current;
+          const hit = measureLastHitRef.current;
+          if (measureModeRef.current && pts.length === 1 && hit) {
+            const pos = pl.geometry.attributes.position as THREE.BufferAttribute;
+            pos.setXYZ(0, pts[0].x, pts[0].y, pts[0].z);
+            pos.setXYZ(1, hit.x, hit.y, hit.z);
+            pos.needsUpdate = true;
+            pl.geometry.computeBoundingSphere();
+            pl.visible = true;
+          } else {
+            pl.visible = false;
+          }
+        }
+      };
+      world.renderer.onAfterUpdate.add(measureAfterRender);
+
       // Eventos del ViewCube: capture phase para interceptar antes que camera-controls
       let vcPendingDir: THREE.Vector3 | null = null;
 
@@ -936,6 +1240,10 @@ export default function BimViewerClient() {
 
       vcCleanupRef.current = () => {
         world.renderer?.onAfterUpdate.remove(vcAfterRender);
+        world.renderer?.onAfterUpdate.remove(measureAfterRender);
+        canvas.removeEventListener("mousemove", onMeasureMouseMove);
+        const pl = measurePreviewLineRef.current;
+        if (pl) { world.scene.three.remove(pl); pl.geometry.dispose(); (pl.material as THREE.Material).dispose(); measurePreviewLineRef.current = null; }
         canvas.removeEventListener("pointerdown", onVCPointerDown, { capture: true });
         canvas.removeEventListener("pointerup",   onVCPointerUp,   { capture: true });
         canvas.removeEventListener("mousemove",   onVCMouseMove,   { capture: true });
@@ -962,7 +1270,7 @@ export default function BimViewerClient() {
         worldRef.current = null;
       }
     };
-  }, [reapplyColors, reapplySelection]);
+  }, [reapplyColors, reapplyGhost, reapplySelection]);
 
   const loadIfc = useCallback(async (file: File) => {
     if (!readyRef.current || !componentsRef.current || !worldRef.current) return;
@@ -991,6 +1299,7 @@ export default function BimViewerClient() {
       });
 
       world.scene.three.add(model.object);
+      modelObjectRef.current = model.object;
       setHasModel(true);
       await world.camera.fitToItems();
 
@@ -1033,30 +1342,14 @@ export default function BimViewerClient() {
           if (sectionBoxGroupRef.current) {
             world.scene.three.remove(sectionBoxGroupRef.current);
           }
+          boxRotQRef.current = new THREE.Quaternion();
           const { group, wire, handles } = createSectionBox(world.scene.three);
           sectionBoxGroupRef.current = group;
           sectionBoxWireRef.current  = wire;
           sectionBoxHandlesRef.current = handles;
 
-          // Posicionar la caja en el bbox completo del modelo
-          const cx = (box.min.x + box.max.x) / 2;
-          const cy = (box.min.y + box.max.y) / 2;
-          const cz = (box.min.z + box.max.z) / 2;
-          const sx = Math.max(box.max.x - box.min.x, 0.001);
-          const sy = Math.max(box.max.y - box.min.y, 0.001);
-          const szv = Math.max(box.max.z - box.min.z, 0.001);
-          wire.position.set(cx, cy, cz);
-          wire.scale.set(sx, sy, szv);
-          const [xMinH, xMaxH, yMinH, yMaxH, zMinH, zMaxH] = handles;
-          const tx = Math.max(sx * 0.05, 0.05);
-          const ty = Math.max(sy * 0.05, 0.05);
-          const tz = Math.max(szv * 0.05, 0.05);
-          if (xMinH) { xMinH.position.set(box.min.x, cy, cz); xMinH.scale.set(tx, sy, szv); }
-          if (xMaxH) { xMaxH.position.set(box.max.x, cy, cz); xMaxH.scale.set(tx, sy, szv); }
-          if (yMinH) { yMinH.position.set(cx, box.min.y, cz); yMinH.scale.set(sx, ty, szv); }
-          if (yMaxH) { yMaxH.position.set(cx, box.max.y, cz); yMaxH.scale.set(sx, ty, szv); }
-          if (zMinH) { zMinH.position.set(cx, cy, box.min.z); zMinH.scale.set(sx, sy, tz); }
-          if (zMaxH) { zMaxH.position.set(cx, cy, box.max.z); zMaxH.scale.set(sx, sy, tz); }
+          // Posicionar usando updateBoxFromRef (ya usa rotación y coordenadas locales)
+          updateSectionBox();
         }
       }
     } catch (err) {
@@ -1109,7 +1402,89 @@ export default function BimViewerClient() {
 
     await fragments.resetHighlight();
     await reapplyColors(fragments);
-  }, [reapplyColors]);
+    await reapplyGhost(fragments);
+  }, [reapplyColors, reapplyGhost]);
+
+  const handleGhostSelected = useCallback(async (modelId: string, localId: number) => {
+    if (!componentsRef.current) return;
+    const fragments = componentsRef.current.get(OBC.FragmentsManager);
+    const inSelection = selectedItemsRef.current.some(
+      (s) => s.modelId === modelId && s.localId === localId
+    );
+    const targets = inSelection && selectedItemsRef.current.length > 1
+      ? selectedItemsRef.current
+      : [{ modelId, localId }];
+    ghostedItemsRef.current = targets;
+    setGhostMode("selected");
+    setGhostCount(targets.length);
+    setLeftTab("section");
+    await fragments.resetHighlight();
+    await reapplyColors(fragments);
+    await reapplyGhost(fragments);
+    await reapplySelection(fragments);
+  }, [reapplyColors, reapplyGhost, reapplySelection]);
+
+  const handleGhostOthers = useCallback(async (modelId: string, localId: number) => {
+    if (!componentsRef.current) return;
+    const fragments = componentsRef.current.get(OBC.FragmentsManager);
+    const mid = currentModelIdRef.current;
+    if (!mid) return;
+    const inSelection = selectedItemsRef.current.some(
+      (s) => s.modelId === modelId && s.localId === localId
+    );
+    const protected_ = inSelection && selectedItemsRef.current.length > 1
+      ? new Set(selectedItemsRef.current.map((s) => s.localId))
+      : new Set([localId]);
+    const all = collectAllLocalIds(modelTree, mid);
+    const targets = all.filter((i) => !protected_.has(i.localId));
+    ghostedItemsRef.current = targets;
+    setGhostMode("others");
+    setGhostCount(targets.length);
+    setLeftTab("section");
+    await fragments.resetHighlight();
+    await reapplyColors(fragments);
+    await reapplyGhost(fragments);
+    await reapplySelection(fragments);
+  }, [reapplyColors, reapplyGhost, reapplySelection, modelTree]);
+
+  const clearGhost = useCallback(async () => {
+    if (!componentsRef.current) return;
+    const fragments = componentsRef.current.get(OBC.FragmentsManager);
+    ghostedItemsRef.current = [];
+    setGhostMode(null);
+    setGhostCount(0);
+    await fragments.resetHighlight();
+    await reapplyColors(fragments);
+    await reapplySelection(fragments);
+  }, [reapplyColors, reapplySelection]);
+
+  const clearMeasure = useCallback(() => {
+    const world = worldRef.current;
+    const disposeObjs = (objs: THREE.Object3D[]) => {
+      for (const obj of objs) {
+        world?.scene.three.remove(obj);
+        (obj as any).geometry?.dispose();
+        const mat = (obj as any).material;
+        if (mat) Array.isArray(mat) ? mat.forEach((m: any) => m?.dispose?.()) : mat.dispose?.();
+      }
+    };
+    // Limpiar objetos en curso
+    disposeObjs(measureObjectsRef.current);
+    measureObjectsRef.current = [];
+    // Limpiar mediciones completadas
+    for (const m of completedMeasurementsRef.current) {
+      disposeObjs(m.objects);
+      m.labelEl.remove();
+    }
+    completedMeasurementsRef.current = [];
+    measurePointsRef.current  = [];
+    measureLastHitRef.current = null;
+    measureDistRef.current    = null;
+    if (measurePreviewLineRef.current) measurePreviewLineRef.current.visible = false;
+    setMeasureStep(0);
+    setMeasureDistance(null);
+    setMeasureCount(0);
+  }, []);
 
   const restoreAll = useCallback(async () => {
     if (!componentsRef.current) return;
@@ -1124,14 +1499,36 @@ export default function BimViewerClient() {
     // Limpiar todos los highlights (colores y selección)
     await fragments.resetHighlight();
 
+    // Resetear section box
+    const nx = { ...sectionX, enabled: false, minVal: sectionX.bboxMin, maxVal: sectionX.bboxMax };
+    const ny = { ...sectionY, enabled: false, minVal: sectionY.bboxMin, maxVal: sectionY.bboxMax };
+    const nz = { ...sectionZ, enabled: false, minVal: sectionZ.bboxMin, maxVal: sectionZ.bboxMax };
+    setSectionX(nx); setSectionY(ny); setSectionZ(nz);
+    setSectionBoxActive(false);
+    setSectionBoxVisible(true);
+    sectionBoxEnabledRef.current = false;
+    sectionBoxVisibleRef.current = true;
+    sectionRef.current = { x: nx, y: ny, z: nz };
+    boxRotQRef.current = new THREE.Quaternion();
+    setBoxRotY(0);
+    if (sectionBoxGroupRef.current) {
+      sectionBoxGroupRef.current.visible = false;
+      sectionBoxGroupRef.current.quaternion.identity();
+    }
+    const r = worldRef.current?.renderer as any;
+    if (r?.three) r.three.clippingPlanes = [];
+
     // Resetear estado
     coloredItemsRef.current = [];
     selectedItemsRef.current = [];
+    ghostedItemsRef.current = [];
     setColoredCount(0);
     setHiddenItems([]);
+    setGhostMode(null);
+    setGhostCount(0);
     setPanel(null);
     setContextMenu(null);
-  }, [hiddenItems]);
+  }, [hiddenItems, sectionX, sectionY, sectionZ]);
 
   const handleTreeSelect = useCallback(async (localId: number) => {
     if (!componentsRef.current) return;
@@ -1147,6 +1544,7 @@ export default function BimViewerClient() {
 
     await fragments.resetHighlight();
     await reapplyColors(fragments);
+    await reapplyGhost(fragments);
     await reapplySelection(fragments);
 
     const [data] = await model.getItemsData([localId]);
@@ -1172,7 +1570,7 @@ export default function BimViewerClient() {
       type: type !== name ? type : null,
       properties: entries,
     });
-  }, [reapplyColors, reapplySelection]);
+  }, [reapplyColors, reapplyGhost, reapplySelection]);
 
   const closePanel = useCallback(async () => {
     setPanel(null);
@@ -1183,8 +1581,9 @@ export default function BimViewerClient() {
       const fragments = componentsRef.current.get(OBC.FragmentsManager);
       await fragments.resetHighlight();
       await reapplyColors(fragments);
+      await reapplyGhost(fragments);
     }
-  }, [reapplyColors]);
+  }, [reapplyColors, reapplyGhost]);
 
   const handleToggleCategory = useCallback(async (cat: string, visible: boolean) => {
     const modelId = currentModelIdRef.current;
@@ -1213,10 +1612,74 @@ export default function BimViewerClient() {
     const r = worldRef.current?.renderer as any;
     const renderer: THREE.WebGLRenderer | undefined = r?.three;
     if (!renderer) return;
-    const canvas = renderer.domElement;
+    const glCanvas = renderer.domElement;
+    const w = glCanvas.width;
+    const h = glCanvas.height;
+
+    const offscreen = document.createElement("canvas");
+    offscreen.width = w;
+    offscreen.height = h;
+    const ctx = offscreen.getContext("2d")!;
+
+    // Capa WebGL
+    ctx.drawImage(glCanvas, 0, 0);
+
+    // Superponer etiquetas de medición
+    const measurements = completedMeasurementsRef.current;
+    if (measurements.length > 0) {
+      const cam = (worldRef.current?.camera as any)?.three as THREE.Camera | undefined;
+      if (cam) {
+        const dpr = renderer.getPixelRatio();
+        const fontSize = Math.round(12 * dpr);
+        ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        const roundRect = (x: number, y: number, bw: number, bh: number, rad: number) => {
+          ctx.beginPath();
+          ctx.moveTo(x + rad, y);
+          ctx.lineTo(x + bw - rad, y);
+          ctx.quadraticCurveTo(x + bw, y, x + bw, y + rad);
+          ctx.lineTo(x + bw, y + bh - rad);
+          ctx.quadraticCurveTo(x + bw, y + bh, x + bw - rad, y + bh);
+          ctx.lineTo(x + rad, y + bh);
+          ctx.quadraticCurveTo(x, y + bh, x, y + bh - rad);
+          ctx.lineTo(x, y + rad);
+          ctx.quadraticCurveTo(x, y, x + rad, y);
+          ctx.closePath();
+        };
+
+        for (const m of measurements) {
+          const mid = new THREE.Vector3().addVectors(m.p1, m.p2).multiplyScalar(0.5);
+          mid.project(cam);
+          const sx = (mid.x * 0.5 + 0.5) * w;
+          const sy = (-mid.y * 0.5 + 0.5) * h;
+
+          const text = m.distance >= 1
+            ? `${m.distance.toFixed(3)} m`
+            : `${(m.distance * 100).toFixed(1)} cm`;
+
+          const tw = ctx.measureText(text).width;
+          const px = 8 * dpr;
+          const py = 4 * dpr;
+          const bw = tw + px * 2;
+          const bh = fontSize + py * 2;
+          const bx = sx - bw / 2;
+          const by = sy - bh - 10 * dpr;
+
+          ctx.fillStyle = "#0066cc";
+          roundRect(bx, by, bw, bh, 5 * dpr);
+          ctx.fill();
+
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText(text, sx, by + bh / 2);
+        }
+      }
+    }
+
     const link = document.createElement("a");
     link.download = "visor-bim.png";
-    link.href = canvas.toDataURL("image/png");
+    link.href = offscreen.toDataURL("image/png");
     link.click();
   }, []);
 
@@ -1301,6 +1764,20 @@ export default function BimViewerClient() {
     }, 200);
     return () => clearInterval(interval);
   }, [loadIfc]);
+
+  // Escape cancela la medición
+  useEffect(() => {
+    if (!measureMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        clearMeasure();
+        measureModeRef.current = false;
+        setMeasureMode(false);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [measureMode, clearMeasure]);
 
   const hasOverrides = hiddenItems.length > 0 || coloredCount > 0;
 
@@ -1401,6 +1878,23 @@ export default function BimViewerClient() {
                 className="flex items-center justify-center px-2.5 py-2 text-xs font-medium rounded-lg border border-[#0066cc] text-[#0066cc] hover:bg-blue-50 transition-colors select-none"
               >
                 <Camera size={12} />
+              </button>
+              <button
+                onClick={() => {
+                  const next = !measureModeRef.current;
+                  measureModeRef.current = next;
+                  setMeasureMode(next);
+                  if (!next) clearMeasure();
+                  else { setMeasureStep(0); setMeasureDistance(null); }
+                }}
+                title={measureMode ? "Salir de medición" : "Medir distancia"}
+                className={`flex items-center justify-center px-2.5 py-2 text-xs font-medium rounded-lg border transition-colors select-none ${
+                  measureMode
+                    ? "border-[#0066cc] bg-[#0066cc] text-white"
+                    : "border-[#0066cc] text-[#0066cc] hover:bg-blue-50"
+                }`}
+              >
+                <Ruler size={12} />
               </button>
             </div>
           )}
@@ -1557,6 +2051,7 @@ export default function BimViewerClient() {
                 onChange={(e) => {
                   const active = e.target.checked;
                   setSectionBoxActive(active);
+                  if (!active) { setSectionBoxVisible(true); setBoxRotY(0); boxRotQRef.current = new THREE.Quaternion(); }
                   sectionBoxEnabledRef.current = active;
                   if (sectionBoxGroupRef.current) sectionBoxGroupRef.current.visible = active;
                   const nx = { ...sectionX, enabled: active };
@@ -1574,27 +2069,120 @@ export default function BimViewerClient() {
 
             {sectionBoxActive && (
               <>
-                <p className="text-[9px] text-gray-400 mb-4 leading-relaxed">
+                <button
+                  onClick={() => {
+                    const next = !sectionBoxVisible;
+                    setSectionBoxVisible(next);
+                    if (sectionBoxGroupRef.current) sectionBoxGroupRef.current.visible = next;
+                  }}
+                  className="w-full mb-3 px-3 py-1.5 text-[11px] font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  {sectionBoxVisible ? "Ocultar caja" : "Mostrar caja"}
+                </button>
+
+                {/* Rotación */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-medium text-gray-600">Rotación</span>
+                    <input
+                      type="number"
+                      min={-180}
+                      max={180}
+                      step={1}
+                      value={boxRotY}
+                      onChange={(e) => {
+                        const deg = Math.max(-180, Math.min(180, Number(e.target.value) || 0));
+                        setBoxRotY(deg);
+                        boxRotQRef.current.setFromEuler(new THREE.Euler(0, (deg * Math.PI) / 180, 0));
+                        updateSectionBox();
+                        applyClippingPlanes();
+                      }}
+                      className="w-14 text-right text-[10px] text-gray-600 border border-gray-200 rounded px-1 py-0.5 focus:outline-none focus:border-[#0066cc]"
+                    />
+                  </div>
+                  <input
+                    type="range"
+                    min={-180}
+                    max={180}
+                    step={1}
+                    value={boxRotY}
+                    onChange={(e) => {
+                      const deg = Number(e.target.value);
+                      setBoxRotY(deg);
+                      boxRotQRef.current.setFromEuler(new THREE.Euler(0, (deg * Math.PI) / 180, 0));
+                      updateSectionBox();
+                      applyClippingPlanes();
+                    }}
+                    className="w-full cursor-pointer"
+                    style={{ accentColor: "#0066cc" }}
+                  />
+                </div>
+
+                <p className="text-[9px] text-gray-400 mb-3 leading-relaxed">
                   Arrastra las caras de la caja en el visor para recortar el modelo.
                 </p>
                 <button
                   onClick={() => {
-                    const nx = { ...sectionX, enabled: false, minVal: sectionX.bboxMin, maxVal: sectionX.bboxMax };
-                    const ny = { ...sectionY, enabled: false, minVal: sectionY.bboxMin, maxVal: sectionY.bboxMax };
-                    const nz = { ...sectionZ, enabled: false, minVal: sectionZ.bboxMin, maxVal: sectionZ.bboxMax };
+                    const nx = { ...sectionX, enabled: true, minVal: sectionX.bboxMin, maxVal: sectionX.bboxMax };
+                    const ny = { ...sectionY, enabled: true, minVal: sectionY.bboxMin, maxVal: sectionY.bboxMax };
+                    const nz = { ...sectionZ, enabled: true, minVal: sectionZ.bboxMin, maxVal: sectionZ.bboxMax };
                     setSectionX(nx); setSectionY(ny); setSectionZ(nz);
-                    setSectionBoxActive(false);
-                    sectionBoxEnabledRef.current = false;
-                    if (sectionBoxGroupRef.current) sectionBoxGroupRef.current.visible = false;
                     sectionRef.current = { x: nx, y: ny, z: nz };
-                    const r = worldRef.current?.renderer as any;
-                    if (r?.three) r.three.clippingPlanes = [];
+                    setBoxRotY(0);
+                    boxRotQRef.current = new THREE.Quaternion();
+                    setSectionBoxVisible(true);
+                    sectionBoxVisibleRef.current = true;
+                    if (sectionBoxGroupRef.current) sectionBoxGroupRef.current.visible = true;
+                    updateSectionBox();
+                    applyClippingPlanes();
                   }}
-                  className="w-full px-3 py-1.5 text-[11px] font-medium text-[#0066cc] border border-[#0066cc] rounded-lg hover:bg-blue-50 transition-colors"
+                  className="w-full mb-2 px-3 py-1.5 text-[11px] font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  Quitar sección
+                  Restablecer caja
                 </button>
               </>
+            )}
+
+            {/* Transparencia */}
+            {ghostMode !== null && (
+              <div className="mt-5 pt-4 border-t border-gray-100">
+                <p className="text-[10px] font-semibold text-gray-600 mb-1 uppercase tracking-wider">Transparencia</p>
+                <p className="text-[9px] text-gray-400 mb-3">
+                  {ghostMode === "selected" ? "Selección" : "Resto"} · {ghostCount} elemento{ghostCount !== 1 ? "s" : ""}
+                </p>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[10px] text-gray-500 shrink-0">Opacidad</span>
+                  <input
+                    type="range"
+                    min={5}
+                    max={70}
+                    step={5}
+                    value={Math.round(ghostOpacity * 100)}
+                    onChange={(e) => setGhostOpacity(Number(e.target.value) / 100)}
+                    onPointerUp={async () => {
+                      if (!componentsRef.current) return;
+                      const fragments = componentsRef.current.get(OBC.FragmentsManager);
+                      await fragments.resetHighlight();
+                      await reapplyColors(fragments);
+                      await reapplyGhost(fragments);
+                      await reapplySelection(fragments);
+                    }}
+                    className="flex-1 accent-[#0066cc] cursor-pointer"
+                    style={{ accentColor: "#0066cc" }}
+                  />
+                  <span className="text-[10px] text-gray-500 w-7 text-right">{Math.round(ghostOpacity * 100)}%</span>
+                </div>
+              </div>
+            )}
+
+            {/* Restaurar todo — visible si hay sección o transparencia activa */}
+            {(sectionBoxActive || ghostMode !== null) && (
+              <button
+                onClick={restoreAll}
+                className="w-full mt-3 px-3 py-1.5 text-[11px] font-medium text-[#0066cc] border border-[#0066cc] rounded-lg hover:bg-blue-50 transition-colors"
+              >
+                Restaurar todo
+              </button>
             )}
           </div>
         )}
@@ -1605,13 +2193,34 @@ export default function BimViewerClient() {
 
       {/* Canvas 3D */}
       <div
-        className="relative flex-1 min-h-0"
+        className="relative flex-1 min-h-0 overflow-hidden"
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
       >
         <div ref={containerRef} className="w-full h-full" />
 
+        {/* Cursor de snap (vértice / arista) */}
+        <div
+          ref={measureSnapDivRef}
+          style={{ display: "none", position: "absolute", pointerEvents: "none", transform: "translate(-50%, -50%)" }}
+          className="z-20 w-3 h-3 rounded-full border-2 border-[#00ccff] bg-[#00ccff]/30 shadow"
+        />
+
+        {/* Los labels de medición se crean dinámicamente vía DOM en completedMeasurementsRef */}
+
+        {/* Banner de instrucción cuando el modo medición está activo */}
+        {measureMode && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-[#0066cc] text-white text-xs font-medium px-4 py-2 rounded-full shadow-lg pointer-events-none select-none">
+            <Ruler size={13} />
+            {measureStep === 0 && (
+              measureCount > 0
+                ? `${measureCount} medición${measureCount > 1 ? "es" : ""} · Clic para nueva · Esc para salir`
+                : "Haz clic en el primer punto · Esc para salir"
+            )}
+            {measureStep === 1 && "Haz clic en el segundo punto · Esc para salir"}
+          </div>
+        )}
 
         {isDragging && (
           <div className="absolute inset-0 bg-blue-500/10 border-4 border-dashed border-[#0066cc] flex items-center justify-center z-10 pointer-events-none">
@@ -1800,9 +2409,12 @@ export default function BimViewerClient() {
           elementName={contextMenu.name}
           onHide={() => handleHide(contextMenu.modelId, contextMenu.localId)}
           onColor={(hex) => handleColor(contextMenu.modelId, contextMenu.localId, hex)}
+          onGhostSelected={() => handleGhostSelected(contextMenu.modelId, contextMenu.localId)}
+          onGhostOthers={() => handleGhostOthers(contextMenu.modelId, contextMenu.localId)}
           onClose={() => setContextMenu(null)}
         />
       )}
+
     </div>
   );
 }

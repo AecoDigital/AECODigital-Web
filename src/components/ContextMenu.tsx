@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { EyeOff, Palette, X } from "lucide-react";
+import { EyeOff, Palette, X, Layers, Layers2 } from "lucide-react";
 
 interface Props {
   x: number;
@@ -9,6 +9,8 @@ interface Props {
   elementName: string;
   onHide: () => void;
   onColor: (color: string) => void;
+  onGhostSelected: () => void;
+  onGhostOthers: () => void;
   onClose: () => void;
 }
 
@@ -18,12 +20,11 @@ const PRESET_COLORS = [
   "#ec4899", "#ffffff",
 ];
 
-export default function ContextMenu({ x, y, elementName, onHide, onColor, onClose }: Props) {
+export default function ContextMenu({ x, y, elementName, onHide, onColor, onGhostSelected, onGhostOthers, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x, y });
   const [showPicker, setShowPicker] = useState(false);
 
-  // Ajustar para que no salga de pantalla
   useEffect(() => {
     if (!ref.current) return;
     const { width, height } = ref.current.getBoundingClientRect();
@@ -33,7 +34,6 @@ export default function ContextMenu({ x, y, elementName, onHide, onColor, onClos
     });
   }, [x, y, showPicker]);
 
-  // Cerrar al hacer clic fuera o pulsar Escape
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     const onClickOutside = (e: MouseEvent) => {
@@ -105,6 +105,23 @@ export default function ContextMenu({ x, y, elementName, onHide, onColor, onClos
             </label>
           </div>
         )}
+
+        <div className="border-t border-gray-100 mt-1 pt-1">
+          <button
+            onClick={() => { onGhostSelected(); onClose(); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Layers size={14} className="text-gray-400" />
+            Transparencia: selección
+          </button>
+          <button
+            onClick={() => { onGhostOthers(); onClose(); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Layers2 size={14} className="text-gray-400" />
+            Transparencia: resto
+          </button>
+        </div>
       </div>
     </div>
   );
