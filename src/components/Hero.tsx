@@ -46,14 +46,14 @@ function TypewriterWord({ prefijos }: { prefijos: readonly string[] }) {
 
   return (
     <span className="inline-flex flex-wrap items-baseline justify-center gap-0">
-      <span className="text-gray-900">{displayed}</span>
+      <span className="text-[#F4F6F9]">{displayed}</span>
       <span
-        className="inline-block w-[3px] h-[0.85em] bg-gray-900 align-middle"
+        className="inline-block w-[3px] h-[0.85em] bg-[#F4F6F9] align-middle"
         style={{ animation: "blink-cursor 1s step-end infinite" }}
       />
-      <span className="text-[#0066cc]">.</span>
+      <span className="text-[#00E5A3]">.</span>
       <span
-        className="text-[#0066cc] font-black"
+        className="text-[#00E5A3] font-black"
         style={{ letterSpacing: "-0.02em" }}
       >
         Digital
@@ -77,8 +77,8 @@ export default function Hero() {
 
       <div className="max-w-4xl mx-auto text-center">
         {/* Badge */}
-        <div className="inline-flex items-center gap-2 text-xs font-medium text-[#0066cc] bg-[#e8f1fb] px-3 py-1.5 rounded-full mb-8">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#0066cc]" />
+        <div className="inline-flex items-center gap-2 text-xs font-medium text-[#00E5A3] bg-[#00E5A3]/10 px-3 py-1.5 rounded-full mb-8">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#00E5A3]" />
           {h.badge}
         </div>
 
@@ -88,7 +88,7 @@ export default function Hero() {
         </h1>
 
         {/* Subtítulo */}
-        <p className="text-base sm:text-xl text-gray-500 leading-relaxed max-w-2xl mx-auto mb-10">
+        <p className="text-base sm:text-xl text-gray-300 leading-relaxed max-w-2xl mx-auto mb-10">
           {h.subtitle}
         </p>
 
@@ -96,13 +96,13 @@ export default function Hero() {
         <div className="flex flex-wrap items-center justify-center gap-3 mb-16">
           <a
             href="#contacto"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-[#0066cc] text-white text-sm font-semibold rounded-lg hover:bg-[#004d99] transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[#00E5A3] text-[#1A1F26] text-sm font-semibold rounded-lg hover:bg-[#00B882] transition-colors"
           >
             {h.ctaPrimary} <ArrowRight size={15} />
           </a>
           <a
             href="#portfolio"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-gray-50 text-gray-700 text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[#252D3A] text-gray-300 text-sm font-medium rounded-lg border border-gray-700 hover:bg-[#2e3849] transition-colors"
           >
             {h.ctaSecondary}
           </a>
@@ -112,14 +112,14 @@ export default function Hero() {
         <div className="flex items-center justify-center gap-10 mb-16">
           {h.stats.map(({ value, label }) => (
             <div key={label} className="text-center">
-              <div className="text-3xl font-bold text-gray-900">{value}</div>
+              <div className="text-3xl font-bold text-[#F4F6F9]">{value}</div>
               <div className="text-sm text-gray-400 mt-0.5">{label}</div>
             </div>
           ))}
         </div>
 
         {/* Tech logos */}
-        <div className="border-t border-gray-100 pt-8">
+        <div className="border-t border-gray-700/50 pt-8">
           <p className="text-xs text-gray-400 uppercase tracking-widest mb-5 font-medium">
             {h.techLabel}
           </p>
@@ -127,7 +127,7 @@ export default function Hero() {
             {LOGOS.map((logo) => (
               <div
                 key={logo}
-                className="px-4 py-2 bg-gray-50 text-gray-500 text-sm font-medium rounded-lg border border-gray-100"
+                className="px-4 py-2 bg-[#252D3A] text-gray-400 text-sm font-medium rounded-lg border border-gray-700/50"
               >
                 {logo}
               </div>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
 import { Copy, Check, X, GripVertical, Search } from "lucide-react";
@@ -100,7 +100,7 @@ export default function PropertiesPanel({
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-gray-800 truncate">{elementName}</p>
           {elementType && (
-            <p className="text-[10px] text-[#0066cc] font-medium">{elementType}</p>
+            <p className="text-[10px] text-[#00E5A3] font-medium">{elementType}</p>
           )}
         </div>
         <button

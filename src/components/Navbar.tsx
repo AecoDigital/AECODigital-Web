@@ -19,15 +19,17 @@ export default function Navbar() {
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${
-        scrolled ? "bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm" : "bg-white"
+        scrolled
+          ? "bg-[#1A1F26]/95 backdrop-blur-sm border-b border-gray-700/50 shadow-sm"
+          : "bg-[#1A1F26]"
       }`}
     >
       <nav className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
           <span className="text-lg font-bold tracking-tight">
-            <span className="text-[#0066cc]">AECO</span>
-            <span className="text-gray-900">Digital</span>
+            <span className="text-[#F4F6F9]">AECO</span>
+            <span className="text-[#00E5A3]">Digital</span>
           </span>
         </Link>
 
@@ -36,11 +38,11 @@ export default function Navbar() {
           {t.navbar.links.map((l) => (
             <li key={l.href}>
               {l.href.startsWith("/") ? (
-                <Link href={l.href} className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
+                <Link href={l.href} className="text-sm text-gray-400 hover:text-[#F4F6F9] transition-colors">
                   {l.label}
                 </Link>
               ) : (
-                <a href={l.href} className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
+                <a href={l.href} className="text-sm text-gray-400 hover:text-[#F4F6F9] transition-colors">
                   {l.label}
                 </a>
               )}
@@ -51,13 +53,13 @@ export default function Navbar() {
         {/* Right side: language selector + CTA */}
         <div className="hidden md:flex items-center gap-3">
           {/* Language selector */}
-          <div className="flex items-center gap-1 border border-gray-200 rounded-lg overflow-hidden text-xs font-medium">
+          <div className="flex items-center gap-1 border border-gray-700 rounded-lg overflow-hidden text-xs font-medium">
             <button
               onClick={() => setLang("es")}
               className={`flex items-center gap-1 px-2.5 py-1.5 transition-colors ${
                 lang === "es"
-                  ? "bg-[#0066cc] text-white"
-                  : "text-gray-500 hover:text-gray-900"
+                  ? "bg-[#00E5A3] text-[#1A1F26]"
+                  : "text-gray-400 hover:text-[#F4F6F9]"
               }`}
             >
               <Globe size={11} />
@@ -67,8 +69,8 @@ export default function Navbar() {
               onClick={() => setLang("en")}
               className={`px-2.5 py-1.5 transition-colors ${
                 lang === "en"
-                  ? "bg-[#0066cc] text-white"
-                  : "text-gray-500 hover:text-gray-900"
+                  ? "bg-[#00E5A3] text-[#1A1F26]"
+                  : "text-gray-400 hover:text-[#F4F6F9]"
               }`}
             >
               EN
@@ -77,7 +79,7 @@ export default function Navbar() {
 
           <a
             href="#contacto"
-            className="inline-flex items-center px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-lg hover:bg-[#004d99] transition-colors"
+            className="inline-flex items-center px-4 py-2 bg-[#00E5A3] text-[#1A1F26] text-sm font-semibold rounded-lg hover:bg-[#00B882] transition-colors"
           >
             {t.navbar.cta}
           </a>
@@ -86,7 +88,7 @@ export default function Navbar() {
         {/* Mobile toggle */}
         <button
           onClick={() => setOpen(!open)}
-          className="md:hidden text-gray-500 hover:text-gray-900"
+          className="md:hidden text-gray-400 hover:text-[#F4F6F9]"
           aria-label="Menú"
         >
           {open ? <X size={20} /> : <Menu size={20} />}
@@ -94,16 +96,16 @@ export default function Navbar() {
       </nav>
 
       {open && (
-        <div className="md:hidden bg-white border-b border-gray-100 px-6 pb-5">
+        <div className="md:hidden bg-[#1A1F26] border-b border-gray-700/50 px-6 pb-5">
           <ul className="flex flex-col gap-4 pt-2">
             {t.navbar.links.map((l) => (
               <li key={l.href}>
                 {l.href.startsWith("/") ? (
-                  <Link href={l.href} onClick={() => setOpen(false)} className="text-sm text-gray-600 hover:text-gray-900">
+                  <Link href={l.href} onClick={() => setOpen(false)} className="text-sm text-gray-400 hover:text-[#F4F6F9]">
                     {l.label}
                   </Link>
                 ) : (
-                  <a href={l.href} onClick={() => setOpen(false)} className="text-sm text-gray-600 hover:text-gray-900">
+                  <a href={l.href} onClick={() => setOpen(false)} className="text-sm text-gray-400 hover:text-[#F4F6F9]">
                     {l.label}
                   </a>
                 )}
@@ -112,11 +114,11 @@ export default function Navbar() {
           </ul>
 
           {/* Language selector mobile */}
-          <div className="flex items-center gap-1 border border-gray-200 rounded-lg overflow-hidden text-xs font-medium w-fit mt-4">
+          <div className="flex items-center gap-1 border border-gray-700 rounded-lg overflow-hidden text-xs font-medium w-fit mt-4">
             <button
               onClick={() => setLang("es")}
               className={`flex items-center gap-1 px-2.5 py-1.5 transition-colors ${
-                lang === "es" ? "bg-[#0066cc] text-white" : "text-gray-500"
+                lang === "es" ? "bg-[#00E5A3] text-[#1A1F26]" : "text-gray-400"
               }`}
             >
               <Globe size={11} />
@@ -125,7 +127,7 @@ export default function Navbar() {
             <button
               onClick={() => setLang("en")}
               className={`px-2.5 py-1.5 transition-colors ${
-                lang === "en" ? "bg-[#0066cc] text-white" : "text-gray-500"
+                lang === "en" ? "bg-[#00E5A3] text-[#1A1F26]" : "text-gray-400"
               }`}
             >
               EN
@@ -135,7 +137,7 @@ export default function Navbar() {
           <a
             href="#contacto"
             onClick={() => setOpen(false)}
-            className="mt-3 inline-flex px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-lg"
+            className="mt-3 inline-flex px-4 py-2 bg-[#00E5A3] text-[#1A1F26] text-sm font-semibold rounded-lg"
           >
             {t.navbar.cta}
           </a>

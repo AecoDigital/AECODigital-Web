@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { EyeOff, Palette, X, Layers, Layers2 } from "lucide-react";
@@ -16,7 +16,7 @@ interface Props {
 
 const PRESET_COLORS = [
   "#ef4444", "#f97316", "#eab308",
-  "#22c55e", "#0066cc", "#8b5cf6",
+  "#22c55e", "#00E5A3", "#8b5cf6",
   "#ec4899", "#ffffff",
 ];
 
@@ -98,7 +98,7 @@ export default function ContextMenu({ x, y, elementName, onHide, onColor, onGhos
               <span className="text-xs text-gray-500">Personalizado:</span>
               <input
                 type="color"
-                defaultValue="#0066cc"
+                defaultValue="#00E5A3"
                 onChange={(e) => { onColor(e.target.value); onClose(); }}
                 className="w-8 h-7 rounded border border-gray-200 cursor-pointer p-0.5"
               />

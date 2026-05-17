@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
 @theme inline {
@@ -9,6 +9,6 @@
 html { scroll-behavior: smooth; }
 
 ::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: #e8f1fb; }
-::-webkit-scrollbar-thumb { background: #93c5fd; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #0066cc; }
+::-webkit-scrollbar-track { background: #252D3A; }
+::-webkit-scrollbar-thumb { background: #00B882; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #00E5A3; }
