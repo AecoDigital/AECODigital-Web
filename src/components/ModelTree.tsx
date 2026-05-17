@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { ChevronRight, ChevronDown, Layers, Box } from "lucide-react";
@@ -39,7 +39,7 @@ function TreeItem({
       <div
         className={`flex items-center gap-1 py-[3px] pr-2 rounded-md cursor-pointer transition-colors select-none
           ${isSelected
-            ? "bg-[#e8f1fb] text-[#0066cc]"
+            ? "bg-[#00E5A3]/10 text-[#00E5A3]"
             : isGroup
               ? "text-gray-500 hover:bg-gray-50"
               : "text-gray-700 hover:bg-gray-50"}`}

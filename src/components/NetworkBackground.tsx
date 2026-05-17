@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef } from "react";
 
@@ -9,8 +9,8 @@ interface Dot {
   vy: number;
 }
 
-const DOT_COLOR = "rgba(0, 102, 204,";
-const LINE_COLOR = "rgba(0, 102, 204,";
+const DOT_COLOR = "rgba(0, 229, 163,";
+const LINE_COLOR = "rgba(0, 229, 163,";
 
 export default function NetworkBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);

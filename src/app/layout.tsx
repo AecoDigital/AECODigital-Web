@@ -29,11 +29,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" className={spaceGrotesk.variable}>
       <body
-        className="min-h-screen antialiased text-gray-900"
-        style={{
-          background:
-            "linear-gradient(160deg, #c8e0f8 0%, #ddeeff 20%, #eef6ff 50%, #e8e4f8 80%, #d8cff5 100%)",
-        }}
+        className="min-h-screen antialiased text-[#F4F6F9]"
+        style={{ background: "#1A1F26" }}
       >
         <LanguageProvider>{children}</LanguageProvider>
         <Analytics />

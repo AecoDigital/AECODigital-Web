@@ -1,4 +1,4 @@
-export type Lang = "es" | "en";
+﻿export type Lang = "es" | "en";
 
 export const translations = {
   es: {
@@ -87,7 +87,7 @@ export const translations = {
           texto:
             "Implementaron nuestra estrategia BIM en menos de 3 meses. El 80% de los RFIs se resuelven antes de llegar a obra.",
           initials: "CM",
-          color: "#0066cc",
+          color: "#00E5A3",
         },
         {
           nombre: "Laura Sánchez",
@@ -111,7 +111,7 @@ export const translations = {
           texto:
             "Dominan tanto BIM como desarrollo web, algo rarísimo. La integración GeoBIM para nuestro proyecto urbano fue perfecta.",
           initials: "MG",
-          color: "#0066cc",
+          color: "#00E5A3",
         },
         {
           nombre: "Pablo Torres",
@@ -421,7 +421,7 @@ export const translations = {
           texto:
             "They implemented our BIM strategy in under 3 months. 80% of RFIs are resolved before reaching site.",
           initials: "CM",
-          color: "#0066cc",
+          color: "#00E5A3",
         },
         {
           nombre: "Laura Sánchez",
@@ -445,7 +445,7 @@ export const translations = {
           texto:
             "They master both BIM and web development — an extremely rare combination. The GeoBIM integration for our urban project was perfect.",
           initials: "MG",
-          color: "#0066cc",
+          color: "#00E5A3",
         },
         {
           nombre: "Pablo Torres",
