@@ -26,6 +26,56 @@ export interface Plugin {
 
 export const plugins: Plugin[] = [
   {
+    slug: "ifc-viewer-desktop",
+    nombre: "IFC Viewer Desktop",
+    categoria: "Desktop",
+    descripcion:
+      "Visor IFC de escritorio con navegación 3D, filtrado de parámetros y edición de valores directamente sobre el modelo — una función única en visores IFC. Trial gratuito de 7 días. Versión PRO contactando con info@aecodigital.com.",
+    version: "v1.0.0",
+    fecha: "May 2026",
+    tags: ["IFC", "Visor", "Desktop", "Parámetros", "BIM"],
+    destacado: true,
+    pro: true,
+    manual: `## ¿Qué hace IFC Viewer Desktop?
+
+IFC Viewer Desktop es una aplicación de escritorio para Windows que permite abrir, navegar y editar modelos IFC sin necesidad de Revit ni ningún otro software BIM.
+
+## Funcionalidades principales
+
+- **Navegación 3D** — orbitar, mover y hacer zoom sobre el modelo con fluidez
+- **Filtrado de parámetros** — busca y filtra cualquier propiedad del modelo al instante
+- **Edición de valores** — modifica los parámetros de los elementos directamente desde el visor, sin abrir Revit
+
+> Esta última funcionalidad es **única en el mercado** — ningún otro visor IFC permite editar parámetros sin el software de origen.
+
+## Requisitos
+
+- Windows 10 / 11 (64 bits)
+- 4 GB RAM mínimo (8 GB recomendado para modelos grandes)
+- Tarjeta gráfica compatible con OpenGL 3.3+
+
+## Instalación
+
+1. Descarga el instalador \`.exe\`
+2. Ejecuta como administrador
+3. Sigue el asistente de instalación
+4. Abre IFC Viewer Desktop desde el escritorio
+
+## Licencia
+
+| Plan | Precio | Duración |
+|---|---|---|
+| **Trial** | Gratuito | 7 días |
+| **PRO** | Contactar | Licencia anual |
+
+Para adquirir la versión PRO escribe a **info@aecodigital.com**.
+`,
+    ejemplos: [],
+    descargas: [
+      { label: "Descargar trial gratuito (.exe)", url: "https://github.com/AecoDigital/AECODigital-Web/releases/download/ifc-viewer-v1.0.0/IFCViewer_Setup.exe", tipo: "zip" },
+    ],
+  },
+  {
     slug: "aecod-ai-connector",
     nombre: "AECOD AI Connector",
     categoria: "Revit",
