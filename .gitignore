@@ -39,6 +39,7 @@ yarn-error.log*
 
 # claude code — configuración local del desarrollador (no compartir)
 .claude/settings.local.json
+CLAUDE.local.md
 
 # typescript
 *.tsbuildinfo
